@@ -11,7 +11,7 @@ public class AutoTeamBalance : BasePlugin
 {
     public override string ModuleName => "AutoTeamBalance";
     public override string ModuleAuthor => "NyggaBytes";
-    public override string ModuleVersion => "1.0.4";
+    public override string ModuleVersion => "1.0.5";
 
     private int[] TeamCount = new int[4];
     private List<CCSPlayerController> balancePending = new List<CCSPlayerController>();
@@ -19,6 +19,15 @@ public class AutoTeamBalance : BasePlugin
     {
         Array.Clear(TeamCount, 0, 4);
         balancePending.Clear();
+        var playersList = Utilities.GetPlayers().Where(p =>
+                p.IsValid
+                && !p.IsHLTV
+                && p.Connected == PlayerConnectedState.PlayerConnected
+                && p.SteamID.ToString().Length == 17);
+        foreach (var player in playersList) {
+            if (player.Team == CsTeam.Terrorist) TeamCount[2]++;
+            if (player.Team == CsTeam.CounterTerrorist) TeamCount[3]++;
+        }
     }
 
     #region Events
