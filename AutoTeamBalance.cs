@@ -1,10 +1,7 @@
-﻿using System.Text.Json.Serialization;
-using CounterStrikeSharp.API;
+﻿using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
-using CounterStrikeSharp.API.Modules.Cvars;
 using CounterStrikeSharp.API.Modules.Utils;
-using Microsoft.Extensions.Localization;
 
 namespace AutoTeamBalance;
 
@@ -12,19 +9,65 @@ public class AutoTeamBalance : BasePlugin
 {
     public override string ModuleName => "AutoTeamBalance";
     public override string ModuleAuthor => "NyggaBytes";
-    public override string ModuleVersion => "1.0.0";
-    public bool isWarmup = false;
+    public override string ModuleVersion => "1.0.3";
 
+    public int[] TeamCount = new int[4];
     public override void Load(bool hotReload)
     {
-        RegisterEventHandler<EventRoundAnnounceWarmup>(OnWarmup);
+        Array.Clear(TeamCount, 0, 4);
     }
 
     #region Events
+
+    [GameEventHandler(HookMode.Pre)]
+    public HookResult OnPlayerTeam(EventPlayerTeam @event, GameEventInfo info)
+    {
+        CCSPlayerController? player = @event.Userid;
+
+        if (player.IsHLTV
+         || player == null
+         || player.IsBot
+         || !player.IsValid
+        ) return HookResult.Continue;
+
+        int newTeam = @event.Team;
+        int oldTeam = @event.Oldteam;
+        bool disconnect = @event.Disconnect;
+
+        if (newTeam != oldTeam && disconnect == false) {
+            if (oldTeam >= 2 && TeamCount[oldTeam] >= 1) {
+                TeamCount[oldTeam]--;
+            }
+            if (newTeam >= 2) {
+                TeamCount[newTeam]++;
+            }
+        }
+
+        //Server.PrintToConsole("[ATBTest] " + newTeam + " " + oldTeam + " " + disconnect);
+        //Server.PrintToConsole("[ATBTest] tt " + TeamCount[2] + " ct " + TeamCount[3]);
+        return HookResult.Continue;
+    }
+
+    [GameEventHandler(HookMode.Pre)]
+    public HookResult OnPlayerDisconnect(EventPlayerDisconnect @event, GameEventInfo info) {
+        CCSPlayerController player = @event.Userid;
+
+        if (player.IsHLTV
+         || player == null
+         || player.IsBot
+         || !player.IsValid
+        ) return HookResult.Continue;
+
+        TeamCount[@event.Userid.TeamNum]--;
+        if (TeamCount[@event.Userid.TeamNum] < 0) TeamCount[@event.Userid.TeamNum] = 0;
+        return HookResult.Continue;
+    }
+
     [GameEventHandler(HookMode.Post)]
     public HookResult OnPlayerDeath(EventPlayerDeath @event, GameEventInfo info)
     {
         CCSPlayerController player = @event.Userid;
+        var gameRule = new CCSGameRules(@info.Handle);
 
         if (
             player.IsHLTV
@@ -32,51 +75,25 @@ public class AutoTeamBalance : BasePlugin
          || !player.IsValid
          || player.Connected != PlayerConnectedState.PlayerConnected
          || player.SteamID.ToString().Length != 17
-         || isWarmup == true
          || @event.Weapon == "world"
+         || gameRule.WarmupPeriod
         ) return HookResult.Continue;
 
-        Server.PrintToConsole(@event.Weapon);
-
-        var ttList = getPlayersPerTeam("Terrorist");
-        var ctList = getPlayersPerTeam("CounterTerrorist");
-        if (Math.Abs(ttList.Count() - ctList.Count()) >= 2)
+        if (Math.Abs(TeamCount[2] - TeamCount[3]) >= 2)
         {
-            if (ttList.Count() > ctList.Count()) {
-                if (ttList.Contains(player)) { player.SwitchTeam(player.Team == CsTeam.Terrorist ? CsTeam.CounterTerrorist : CsTeam.Terrorist); }
+            int[] TeamCountBefore = (int[])TeamCount.Clone();
+            if (TeamCount[2] > TeamCount[3]) {
+                if (player.Team == CsTeam.Terrorist) { player.SwitchTeam(CsTeam.CounterTerrorist); }
                 player.PrintToChat(Localizer["ForcedChangedTeam"]);
-                Server.PrintToConsole("[AutoTeamBalance]: Moved " + player.PlayerName + "[" + player.SteamID + "] to the team: " + player.Team.ToString() + " (Before tt:" + ttList.Count() + " ct:" + ctList.Count() + ")");
+                Server.PrintToConsole("[AutoTeamBalance]: Moved " + player.PlayerName + " [" + player.SteamID + "] to the team: " + player.Team.ToString() + " (Before[tt:" + TeamCountBefore[2] + " ct:" + TeamCountBefore[3] + "] After[tt:" + TeamCount[2] + " ct:" + TeamCount[3] + "])");
             }
-            else if (ctList.Count() > ttList.Count()) {
-                if (ctList.Contains(player)) { player.SwitchTeam(player.Team == CsTeam.Terrorist ? CsTeam.CounterTerrorist : CsTeam.Terrorist); }
+            else if (TeamCount[3] > TeamCount[2]) {
+                if (player.Team == CsTeam.CounterTerrorist) { player.SwitchTeam(CsTeam.Terrorist); }
                 player.PrintToChat(Localizer["ForcedChangedTeam"]);
-                Server.PrintToConsole("[AutoTeamBalance]: Moved " + player.PlayerName + "[" + player.SteamID + "] to the team: " + player.Team.ToString() + " (Before tt:" + ttList.Count() + " ct:" + ctList.Count() + ")");
+                Server.PrintToConsole("[AutoTeamBalance]: Moved " + player.PlayerName + " [" + player.SteamID + "] to the team: " + player.Team.ToString() + " (Before[tt:" + TeamCountBefore[2] + " ct:" + TeamCountBefore[3] + "] After[tt:" + TeamCount[2] + " ct:" + TeamCount[3] + "])");
             }
         }
-
         return HookResult.Continue;
-    }
-    private HookResult OnWarmup(EventRoundAnnounceWarmup @event, GameEventInfo info)
-    {
-        if (@event.EventName == "round_announce_warmup") isWarmup = true;
-        AddTimer((float)(Math.Round(ConVar.Find("mp_warmuptime")!.GetPrimitiveValue<float>())), () => {
-            isWarmup = false;
-        });
-        return HookResult.Continue;
-    }
-    #endregion
-
-    #region Functions
-    private List<CCSPlayerController> getPlayersPerTeam(string team)
-    {
-        var allPlayers = Utilities.GetPlayers().Where(p =>
-                    p.IsValid
-                    && !p.IsHLTV
-                    && !p.IsBot
-                    && p.Connected == PlayerConnectedState.PlayerConnected
-                    && p.SteamID.ToString().Length == 17
-                    && p.Team.ToString() == team);
-        return allPlayers.ToList();
     }
     #endregion
 }
