@@ -1,0 +1,12 @@
+C:\Users\Damian\Desktop\GITHUB\HSMANIA\AutoTeamBalance\obj\Debug\net7.0\AutoTeamBalance.csproj.AssemblyReference.cache
+C:\Users\Damian\Desktop\GITHUB\HSMANIA\AutoTeamBalance\obj\Debug\net7.0\AutoTeamBalance.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Damian\Desktop\GITHUB\HSMANIA\AutoTeamBalance\obj\Debug\net7.0\AutoTeamBalance.AssemblyInfoInputs.cache
+C:\Users\Damian\Desktop\GITHUB\HSMANIA\AutoTeamBalance\obj\Debug\net7.0\AutoTeamBalance.AssemblyInfo.cs
+C:\Users\Damian\Desktop\GITHUB\HSMANIA\AutoTeamBalance\obj\Debug\net7.0\AutoTeamBalance.csproj.CoreCompileInputs.cache
+C:\Users\Damian\Desktop\GITHUB\HSMANIA\AutoTeamBalance\bin\Debug\net7.0\AutoTeamBalance.deps.json
+C:\Users\Damian\Desktop\GITHUB\HSMANIA\AutoTeamBalance\bin\Debug\net7.0\AutoTeamBalance.dll
+C:\Users\Damian\Desktop\GITHUB\HSMANIA\AutoTeamBalance\bin\Debug\net7.0\AutoTeamBalance.pdb
+C:\Users\Damian\Desktop\GITHUB\HSMANIA\AutoTeamBalance\obj\Debug\net7.0\AutoTeamBalance.dll
+C:\Users\Damian\Desktop\GITHUB\HSMANIA\AutoTeamBalance\obj\Debug\net7.0\refint\AutoTeamBalance.dll
+C:\Users\Damian\Desktop\GITHUB\HSMANIA\AutoTeamBalance\obj\Debug\net7.0\AutoTeamBalance.pdb
+C:\Users\Damian\Desktop\GITHUB\HSMANIA\AutoTeamBalance\obj\Debug\net7.0\ref\AutoTeamBalance.dll
