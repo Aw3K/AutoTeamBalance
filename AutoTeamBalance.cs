@@ -4,7 +4,9 @@ using CounterStrikeSharp.API.Core.Attributes.Registration;
 using CounterStrikeSharp.API.Modules.Admin;
 using CounterStrikeSharp.API.Modules.Commands;
 using CounterStrikeSharp.API.Modules.Utils;
+using System;
 using System.Data;
+using System.Reflection;
 
 namespace AutoTeamBalance;
 
@@ -12,7 +14,7 @@ public class AutoTeamBalance : BasePlugin
 {
     public override string ModuleName => "AutoTeamBalance";
     public override string ModuleAuthor => "NyggaBytes";
-    public override string ModuleVersion => "1.0.6";
+    public override string ModuleVersion => "1.0.7";
 
     #region Commands
     [ConsoleCommand("css_atb", "Status of AutoTeamBalance Plugin.")]
@@ -42,14 +44,14 @@ public class AutoTeamBalance : BasePlugin
             Random random = new Random();
             if (ttPlayers.Count() > ctPlayers.Count())
             {
-                var player = ttPlayers[random.Next(ttPlayers.Count() - 1)];
+                var player = ttPlayers[random.Next(ttPlayers.Count())];
                 if (player.Team == CsTeam.Terrorist && player.Connected == PlayerConnectedState.PlayerConnected && player.IsValid) { player.SwitchTeam(CsTeam.CounterTerrorist); }
                 player.PrintToChat(Localizer["ForcedChangedTeam"]);
                 Server.PrintToConsole("[AutoTeamBalance]: Moved " + player.PlayerName + " [" + player.SteamID + "] to the team: " + player.Team.ToString() + " (After[tt:" + ttPlayers.Count() + " ct:" + ctPlayers.Count() + "])");
             }
             else if (ctPlayers.Count() > ttPlayers.Count())
             {
-                var player = ttPlayers[random.Next(ctPlayers.Count() - 1)];
+                var player = ttPlayers[random.Next(ctPlayers.Count())];
                 if (player.Team == CsTeam.CounterTerrorist && player.Connected == PlayerConnectedState.PlayerConnected && player.IsValid) { player.SwitchTeam(CsTeam.Terrorist); }
                 player.PrintToChat(Localizer["ForcedChangedTeam"]);
                 Server.PrintToConsole("[AutoTeamBalance]: Moved " + player.PlayerName + " [" + player.SteamID + "] to the team: " + player.Team.ToString() + " (After[tt:" + ttPlayers.Count() + " ct:" + ctPlayers.Count() + "])");

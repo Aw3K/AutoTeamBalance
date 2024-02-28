@@ -1,4 +1,4 @@
 {
-  "ForcedChangedTeam": " \u0004HS\u0006MAN\u0005IA\u0001.net: Moved You to enemy team for balance.",
-  "NoPermissions": " \u0007Only administrators can use this feature."
+  "ForcedChangedTeam": " [\u0004AutoTeamBalance\u0001] \u0007Moved You to enemy team for balance.",
+  "NoPermissions": " [\u0004AutoTeamBalance\u0001] \u0007Only administrators can use this feature."
 }
