@@ -54,6 +54,8 @@ public class AutoTeamBalance : BasePlugin
                 player.PrintToChat(Localizer["ForcedChangedTeam"]);
                 Server.PrintToConsole("[AutoTeamBalance]: Moved " + player.PlayerName + " [" + player.SteamID + "] to the team: " + player.Team.ToString() + " (After[tt:" + ttPlayers.Count() + " ct:" + ctPlayers.Count() + "])");
             }
+            ttPlayers = PlayersTeams(CsTeam.Terrorist);
+            ctPlayers = PlayersTeams(CsTeam.CounterTerrorist);
         }
         return HookResult.Continue;
     }
