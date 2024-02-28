@@ -4,9 +4,7 @@ using CounterStrikeSharp.API.Core.Attributes.Registration;
 using CounterStrikeSharp.API.Modules.Admin;
 using CounterStrikeSharp.API.Modules.Commands;
 using CounterStrikeSharp.API.Modules.Utils;
-using System;
 using System.Data;
-using System.Reflection;
 
 namespace AutoTeamBalance;
 
@@ -39,7 +37,7 @@ public class AutoTeamBalance : BasePlugin
     public HookResult OnRoundPrestart(EventRoundPrestart @event, GameEventInfo info) {
         var ttPlayers = PlayersTeams(CsTeam.Terrorist);
         var ctPlayers = PlayersTeams(CsTeam.CounterTerrorist);
-        if (Math.Abs(ttPlayers.Count() - ctPlayers.Count()) >= 2)
+        while (Math.Abs(ttPlayers.Count() - ctPlayers.Count()) >= 2)
         {
             Random random = new Random();
             if (ttPlayers.Count() > ctPlayers.Count())
