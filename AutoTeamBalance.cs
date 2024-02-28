@@ -1,6 +1,8 @@
 ﻿using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
+using CounterStrikeSharp.API.Modules.Admin;
+using CounterStrikeSharp.API.Modules.Commands;
 using CounterStrikeSharp.API.Modules.Entities;
 using CounterStrikeSharp.API.Modules.Utils;
 using System.Numerics;
@@ -11,7 +13,7 @@ public class AutoTeamBalance : BasePlugin
 {
     public override string ModuleName => "AutoTeamBalance";
     public override string ModuleAuthor => "NyggaBytes";
-    public override string ModuleVersion => "1.0.5";
+    public override string ModuleVersion => "1.0.6";
 
     private int[] TeamCount = new int[4];
     private List<CCSPlayerController> balancePending = new List<CCSPlayerController>();
@@ -30,8 +32,32 @@ public class AutoTeamBalance : BasePlugin
         }
     }
 
-    #region Events
+    #region Commands
+    [ConsoleCommand("css_atb", "Status of AutoTeamBalance Plugin.")]
+    [CommandHelper(minArgs: 0, usage: "", whoCanExecute: CommandUsage.CLIENT_AND_SERVER)]
+    public void OnATBCommand(CCSPlayerController? player, CommandInfo command) {
+        if (!AdminManager.PlayerHasPermissions(player, "@css/ban")) {
+            player!.PrintToChat(Localizer["NoPermissions"]);
+            return;
+        }
+        List<string> output = new List<string>();
+        output.Clear();
+        output.Add("[\u0004AutoTeamBalance\u0001]");
+        output.Add(" \u0004Plugin Version\u0001: " + ModuleVersion); ;
+        output.Add(" \u0004Current known TeamCounts\u0001:  " + TeamCount[2] + " \u0007TTs \u0001| " + TeamCount[3] + " \u0007CTs");
+        output.Add(" \u0004Current know Players for Balance\u0001: ");
+        foreach (var kvp in balancePending)
+        {
+            output.Add(" \u0004| \u0004\"\u0001" + kvp.PlayerName + "\u0004\" \u0007[\u0001" + kvp.SteamID + "\u0007] \u0004- \u0001" + kvp.Team.ToString());
+        }
+        if (balancePending.Count == 0) output.Add(" \u0007List is empty.");
 
+        if (player == null) foreach (var str in output) { Server.PrintToConsole(str); }
+        else foreach (var str in output) { player.PrintToChat(str); }
+    }
+    #endregion
+
+    #region Events
     [GameEventHandler(HookMode.Pre)]
     public HookResult OnRoundPreStart(EventRoundEnd @event, GameEventInfo info) {
         foreach (var kvp in balancePending) {
