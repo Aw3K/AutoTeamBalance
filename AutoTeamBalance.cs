@@ -16,13 +16,23 @@ public class MovedPlayerInfo {
     public string[]? teams { get; set; }
     public int[]? teamCountBefore { get; set; }
     public int[]? teamCountAfter {  get; set; }
+    public void FirstSet(string PlayerName, ulong SteamID, string team, int[] teamCountBefore) {
+        this.teams = new string[2] { "", "" };
+        this.playerName = PlayerName;
+        this.SteamID = SteamID;
+        this.teams[0] = team;
+    }
+    public void LastSet(string[] teamNames, int[] teamCountAfter) {
+        var playerAfter = Utilities.GetPlayerFromSteamId(this.SteamID);
+        if (playerAfter != null) { this.teams[1] = teamNames[playerAfter.TeamNum - 2]; }
+    }
 }
 
 public class AutoTeamBalance : BasePlugin
 {
     public override string ModuleName => "AutoTeamBalance";
     public override string ModuleAuthor => "NyggaBytes";
-    public override string ModuleVersion => "1.0.7";
+    public override string ModuleVersion => "1.0.8";
     public static string[] teamNames = new string[] { "TT", "CT" };
     public List<MovedPlayerInfo> MovedPlayers = new List<MovedPlayerInfo>();
 
@@ -66,38 +76,31 @@ public class AutoTeamBalance : BasePlugin
         {
             Random random = new Random();
             MovedPlayerInfo moved = new MovedPlayerInfo();
-            moved.teams = new string[2] { "", "" };
-            var playertt = ttPlayers[random.Next(ttPlayers.Count())];
-            var playerct = ctPlayers[random.Next(ctPlayers.Count())];
             if (ttPlayers.Count() > ctPlayers.Count())
             {
-                if (playertt.Team == CsTeam.Terrorist && playertt.Connected == PlayerConnectedState.PlayerConnected && playertt.IsValid)
+                var player = ttPlayers[random.Next(ttPlayers.Count())];
+                if (player.Team == CsTeam.Terrorist && player.Connected == PlayerConnectedState.PlayerConnected && player.IsValid)
                 {
-                    moved.playerName = playertt.PlayerName;
-                    moved.teams[0] = teamNames[playertt.TeamNum - 2];
-                    moved.teamCountBefore = new int[2] { ttPlayers.Count(), ctPlayers.Count() };
-                    playertt.SwitchTeam(CsTeam.CounterTerrorist);
+                    moved.FirstSet(player.PlayerName, player.SteamID, teamNames[player.TeamNum - 2], new int[2] { ttPlayers.Count(), ctPlayers.Count() });
+                    player.SwitchTeam(CsTeam.CounterTerrorist);
                 }
-                playertt.PrintToChat(Localizer["ForcedChangedTeam"]);
-                Server.PrintToConsole("[AutoTeamBalance]: Moved " + playertt.PlayerName + " [" + playertt.SteamID + "] to the team: " + playertt.Team.ToString() + " (After[tt:" + ttPlayers.Count() + " ct:" + ctPlayers.Count() + "])");
+                player.PrintToChat(Localizer["ForcedChangedTeam"]);
+                Server.PrintToConsole("[AutoTeamBalance]: Moved " + player.PlayerName + " [" + player.SteamID + "] to the team: " + player.Team.ToString() + " (After[tt:" + ttPlayers.Count() + " ct:" + ctPlayers.Count() + "])");
             }
             else if (ctPlayers.Count() > ttPlayers.Count())
             {
-                if (playerct.Team == CsTeam.CounterTerrorist && playerct.Connected == PlayerConnectedState.PlayerConnected && playerct.IsValid)
+                var player = ctPlayers[random.Next(ctPlayers.Count())];
+                if (player.Team == CsTeam.CounterTerrorist && player.Connected == PlayerConnectedState.PlayerConnected && player.IsValid)
                 {
-                    moved.playerName = playerct.PlayerName;
-                    moved.teams[0] = teamNames[playerct.TeamNum - 2];
-                    moved.teamCountBefore = new int[2] { ttPlayers.Count(), ctPlayers.Count() };
-                    playerct.SwitchTeam(CsTeam.Terrorist);
+                    moved.FirstSet(player.PlayerName, player.SteamID, teamNames[player.TeamNum - 2], new int[2] { ttPlayers.Count(), ctPlayers.Count() });
+                    player.SwitchTeam(CsTeam.Terrorist);
                 }
-                playerct.PrintToChat(Localizer["ForcedChangedTeam"]);
-                Server.PrintToConsole("[AutoTeamBalance]: Moved " + playerct.PlayerName + " [" + playerct.SteamID + "] to the team: " + playerct.Team.ToString() + " (After[tt:" + ttPlayers.Count() + " ct:" + ctPlayers.Count() + "])");
-            }
+                player.PrintToChat(Localizer["ForcedChangedTeam"]);
+                Server.PrintToConsole("[AutoTeamBalance]: Moved " + player.PlayerName + " [" + player.SteamID + "] to the team: " + player.Team.ToString() + " (After[tt:" + ttPlayers.Count() + " ct:" + ctPlayers.Count() + "])");
+            } else { break; }
             ttPlayers = PlayersTeams(CsTeam.Terrorist);
             ctPlayers = PlayersTeams(CsTeam.CounterTerrorist);
-            var player = Utilities.GetPlayerFromSteamId(moved.SteamID);
-            moved.teams[1] = teamNames[player.TeamNum - 2];
-            moved.teamCountAfter = new int[2] { ttPlayers.Count(), ctPlayers.Count() };
+            moved.LastSet(teamNames, new int[2] { ttPlayers.Count(), ctPlayers.Count() });
             MovedPlayers.Add(moved);
         }
         return HookResult.Continue;
