@@ -5,6 +5,7 @@ using CounterStrikeSharp.API.Modules.Admin;
 using CounterStrikeSharp.API.Modules.Commands;
 using CounterStrikeSharp.API.Modules.Utils;
 using System.Data;
+using System.Globalization;
 
 namespace AutoTeamBalance;
 
@@ -15,6 +16,7 @@ public class MovedPlayerInfo {
     public string[]? teams { get; set; }
     public int[]? teamCountBefore { get; set; }
     public int[]? teamCountAfter {  get; set; }
+    public string? timeOfSwitch;
     public void FirstSet(string PlayerName, ulong SteamID, string team, int[] teamCountBefore) {
         this.teams = new string[2] { "", "" };
         this.playerName = PlayerName;
@@ -22,10 +24,11 @@ public class MovedPlayerInfo {
         this.teams[0] = team;
         this.teamCountBefore = (int[]?)teamCountBefore.Clone();
     }
-    public void LastSet(int[] teamCountAfter) {
+    public void LastSet(int[] teamCountAfter, string time) {
         var playerAfter = Utilities.GetPlayerFromSteamId(this.SteamID);
         if (playerAfter != null) { this.teams[1] = teamNames[playerAfter.TeamNum - 2]; }
         this.teamCountAfter = (int[]?)teamCountAfter.Clone();
+        this.timeOfSwitch = time;
     }
 }
 
@@ -33,13 +36,14 @@ public class AutoTeamBalance : BasePlugin
 {
     public override string ModuleName => "AutoTeamBalance";
     public override string ModuleAuthor => "NyggaBytes";
-    public override string ModuleVersion => "1.1.0";
+    public override string ModuleVersion => "1.1.1";
     public static string[] teamNames = new string[] { "TT", "CT" };
     public List<MovedPlayerInfo> MovedPlayers = new List<MovedPlayerInfo>();
 
     public override void Load(bool hotReload)
     {
         MovedPlayers.Clear();
+        RegisterListener<Listeners.OnMapStart>(func => OnMapStartHandle());
         base.Load(hotReload);
     }
 
@@ -59,9 +63,9 @@ public class AutoTeamBalance : BasePlugin
         output.Add(" \u0004Current know Players after balance\u0001: ");
         foreach (var moved in MovedPlayers)
         {
-            output.Add(" \u0004|>  \u0004[\u0001" + moved.playerName + "\u0004] - \u0007" + moved.teams[0] + " \u0004--> \u0007" + moved.teams[1] + " \u0004- \u0001TeamCount: \u0004[\u0001" + moved.teamCountBefore![1] + " \u0007CTs \u0001| " + moved.teamCountBefore[0] + " \u0007TTs\u0004] \u0004--> [\u0001" + moved.teamCountAfter![1] + " \u0007CTs \u0001| " + moved.teamCountAfter[0] + " \u0007TTs\u0004]>");
+            output.Add(" \u0004|> \u0001" + moved.timeOfSwitch + " \u0004[\u0001" + moved.playerName + "\u0004] - \u0007" + moved.teams[0] + " \u0004--> \u0007" + moved.teams[1] + " \u0004- \u0001TeamCount: \u0004[\u0001" + moved.teamCountBefore![1] + " \u0007CTs \u0001| " + moved.teamCountBefore[0] + " \u0007TTs\u0004] \u0004--> [\u0001" + moved.teamCountAfter![1] + " \u0007CTs \u0001| " + moved.teamCountAfter[0] + " \u0007TTs\u0004]>");
         }
-        if (MovedPlayers.Count() == 0) { output.Add(" \u0007 List is empty.");  }
+        if (MovedPlayers.Count() == 0) { output.Add(" \u0007 List is empty."); }
         output.Add("[\u0001/\u0004AutoTeamBalance\u0001]");
         if (player == null) foreach (var str in output) { Server.PrintToConsole(str); }
         else foreach (var str in output) { player.PrintToChat(str); }
@@ -101,7 +105,7 @@ public class AutoTeamBalance : BasePlugin
             } else { break; }
             ttPlayers = PlayersTeams(CsTeam.Terrorist);
             ctPlayers = PlayersTeams(CsTeam.CounterTerrorist);
-            moved.LastSet(new int[2] { ttPlayers.Count(), ctPlayers.Count() });
+            moved.LastSet(new int[2] { ttPlayers.Count(), ctPlayers.Count() }, DateTime.Now.ToString("HH:mm:ss", new CultureInfo("pl_PL")));
             MovedPlayers.Add(moved);
         }
         return HookResult.Continue;
@@ -109,6 +113,9 @@ public class AutoTeamBalance : BasePlugin
     #endregion
 
     #region functions
+    public void OnMapStartHandle() {
+        MovedPlayers.Clear();
+    }
     public List<CCSPlayerController> PlayersTeams( CsTeam team)
     {
        return (Utilities.GetPlayers().Where(p =>
