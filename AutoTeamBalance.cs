@@ -36,7 +36,7 @@ public class AutoTeamBalance : BasePlugin
 {
     public override string ModuleName => "AutoTeamBalance";
     public override string ModuleAuthor => "NyggaBytes";
-    public override string ModuleVersion => "1.1.1";
+    public override string ModuleVersion => "1.1.2";
     public static string[] teamNames = new string[] { "TT", "CT" };
     public List<MovedPlayerInfo> MovedPlayers = new List<MovedPlayerInfo>();
 
@@ -110,13 +110,32 @@ public class AutoTeamBalance : BasePlugin
         }
         return HookResult.Continue;
     }
+    public HookResult OnplayerConnectFull(EventPlayerConnectFull @event, GameEventInfo @info) {
+        var player = @event.Userid;
+        if (player == null
+            || !player.IsValid
+            || player.IsHLTV
+            || player.IsBot
+            || AdminManager.PlayerHasPermissions(player, "@css/ban")
+            || player.Team == CsTeam.Terrorist
+            || player.Team == CsTeam.CounterTerrorist) { return HookResult.Continue; }
+        if (teamDiffCount() < 0) AddTimer(2.0f, () => { player.ChangeTeam(CsTeam.Terrorist); });
+        else if (teamDiffCount() > 0) AddTimer(2.0f, () => { player.ChangeTeam(CsTeam.CounterTerrorist); });
+        return HookResult.Continue;
+    }
     #endregion
 
     #region functions
+    private int teamDiffCount()
+    {
+        var ttPlayers = PlayersTeams(CsTeam.Terrorist).Count();
+        var ctPlayers = PlayersTeams(CsTeam.CounterTerrorist).Count();
+        return ttPlayers - ctPlayers;
+    }
     public void OnMapStartHandle() {
         MovedPlayers.Clear();
     }
-    public List<CCSPlayerController> PlayersTeams( CsTeam team)
+    public List<CCSPlayerController> PlayersTeams(CsTeam team)
     {
        return (Utilities.GetPlayers().Where(p =>
               p.IsValid
