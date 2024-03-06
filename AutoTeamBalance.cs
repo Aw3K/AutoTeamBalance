@@ -35,7 +35,7 @@ public class MovedPlayerInfo {
 
 public class AutoTeamBalance : BasePlugin
 {
-    public override string ModuleName => "AutoTeamBalance";
+    public override string ModuleName => " AutoTeamBalance";
     public override string ModuleAuthor => "NyggaBytes";
     public override string ModuleVersion => "1.1.5";
     public static string[] teamNames = new string[] { "TT", "CT" };
@@ -48,6 +48,7 @@ public class AutoTeamBalance : BasePlugin
     {
         MovedPlayers.Clear();
         logger = Logger;
+        logger.LogInformation($"Plugin version: {ModuleVersion}");
         RegisterListener<Listeners.OnMapStart>(OnMapStartHandle);
     }
 
@@ -140,7 +141,6 @@ public class AutoTeamBalance : BasePlugin
         return ttPlayers - ctPlayers;
     }
     public void OnMapStartHandle(string mapName) {
-        Server.PrintToConsole("OnMapStartHandle");
         AddTimer(1.0f, () =>
         {
             var gamerule = Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules").First().GameRules!;
