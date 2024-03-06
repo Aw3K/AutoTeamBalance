@@ -4,6 +4,7 @@ using CounterStrikeSharp.API.Core.Attributes.Registration;
 using CounterStrikeSharp.API.Modules.Admin;
 using CounterStrikeSharp.API.Modules.Commands;
 using CounterStrikeSharp.API.Modules.Utils;
+using Microsoft.Extensions.Logging;
 using System.Data;
 using System.Globalization;
 
@@ -36,14 +37,17 @@ public class AutoTeamBalance : BasePlugin
 {
     public override string ModuleName => "AutoTeamBalance";
     public override string ModuleAuthor => "NyggaBytes";
-    public override string ModuleVersion => "1.1.3";
+    public override string ModuleVersion => "1.1.5";
     public static string[] teamNames = new string[] { "TT", "CT" };
+    public bool IsQueuedMatchmaking = false;
     public Random rand = new Random();
+    public required ILogger logger;
     public List<MovedPlayerInfo> MovedPlayers = new List<MovedPlayerInfo>();
 
     public override void Load(bool hotReload)
     {
         MovedPlayers.Clear();
+        logger = Logger;
         RegisterListener<Listeners.OnMapStart>(OnMapStartHandle);
     }
 
@@ -90,7 +94,7 @@ public class AutoTeamBalance : BasePlugin
                     player.SwitchTeam(CsTeam.CounterTerrorist);
                 }
                 player.PrintToChat(Localizer["ForcedChangedTeam"]);
-                Server.PrintToConsole("[AutoTeamBalance]: Moved " + player.PlayerName + " [" + player.SteamID + "] to the team: " + player.Team.ToString() + " (After[tt:" + ttPlayers.Count() + " ct:" + ctPlayers.Count() + "])");
+                logger.LogInformation($"[AutoTeamBalance]: Moved {player.PlayerName} [{player.SteamID}] to the team: {player.Team.ToString()} (After[tt:{ttPlayers.Count()}|ct:{ctPlayers.Count()}])");
             }
             else if (ctPlayers.Count() > ttPlayers.Count())
             {
@@ -101,7 +105,7 @@ public class AutoTeamBalance : BasePlugin
                     player.SwitchTeam(CsTeam.Terrorist);
                 }
                 player.PrintToChat(Localizer["ForcedChangedTeam"]);
-                Server.PrintToConsole("[AutoTeamBalance]: Moved " + player.PlayerName + " [" + player.SteamID + "] to the team: " + player.Team.ToString() + " (After[tt:" + ttPlayers.Count() + " ct:" + ctPlayers.Count() + "])");
+                logger.LogInformation($"[AutoTeamBalance]: Moved {player.PlayerName} [{player.SteamID}] to the team: {player.Team.ToString()} (After[tt:{ttPlayers.Count()}|ct:{ctPlayers.Count()}])");
             } else { break; }
             ttPlayers = PlayersTeams(CsTeam.Terrorist);
             ctPlayers = PlayersTeams(CsTeam.CounterTerrorist);
@@ -112,7 +116,6 @@ public class AutoTeamBalance : BasePlugin
     }
     [GameEventHandler(HookMode.Post)]
     public HookResult OnplayerConnectFull(EventPlayerConnectFull @event, GameEventInfo @info) {
-        var gameRules = Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules").First().GameRules!;
         var player = @event.Userid;
         if (player == null
             || !player.IsValid
@@ -124,7 +127,7 @@ public class AutoTeamBalance : BasePlugin
         var tDF = teamDiffCount();
         if (tDF < 0) AddTimer(2.0f, () => { player.ChangeTeam(CsTeam.Terrorist); });
         else if (tDF > 0) AddTimer(2.0f, () => { player.ChangeTeam(CsTeam.CounterTerrorist); });
-        else if (gameRules.IsQueuedMatchmaking && tDF == 0) AddTimer(2.0f, () => { player.ChangeTeam((CsTeam)rand.Next(2,4)); });
+        else if (IsQueuedMatchmaking && tDF == 0) AddTimer(2.0f, () => { player.ChangeTeam((CsTeam)rand.Next(2,4)); });
         return HookResult.Continue;
     }
     #endregion
@@ -137,6 +140,14 @@ public class AutoTeamBalance : BasePlugin
         return ttPlayers - ctPlayers;
     }
     public void OnMapStartHandle(string mapName) {
+        Server.PrintToConsole("OnMapStartHandle");
+        AddTimer(1.0f, () =>
+        {
+            var gamerule = Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules").First().GameRules!;
+            IsQueuedMatchmaking = gamerule.IsQueuedMatchmaking;
+            if (!IsQueuedMatchmaking) logger.LogInformation($"Detected that teammenu is ENABLED, forced random upon join team switch: DISABLED");
+            else logger.LogInformation($"Detected that teammenu is DISABLED, forced random upon join team switch: ENABLED");
+        });
         MovedPlayers.Clear();
     }
     public List<CCSPlayerController> PlayersTeams(CsTeam team)
