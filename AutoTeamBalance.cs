@@ -95,7 +95,7 @@ public class AutoTeamBalance : BasePlugin
                     player.SwitchTeam(CsTeam.CounterTerrorist);
                 }
                 player.PrintToChat(Localizer["ForcedChangedTeam"]);
-                logger.LogInformation($"[AutoTeamBalance]: Moved {player.PlayerName} [{player.SteamID}] to the team: {player.Team.ToString()} (After[tt:{ttPlayers.Count()}|ct:{ctPlayers.Count()}])");
+                logger.LogInformation($"Moved {player.PlayerName} [{player.SteamID}] to the team: {player.Team.ToString()} (After[tt:{ttPlayers.Count()}|ct:{ctPlayers.Count()}])");
             }
             else if (ctPlayers.Count() > ttPlayers.Count())
             {
@@ -106,7 +106,7 @@ public class AutoTeamBalance : BasePlugin
                     player.SwitchTeam(CsTeam.Terrorist);
                 }
                 player.PrintToChat(Localizer["ForcedChangedTeam"]);
-                logger.LogInformation($"[AutoTeamBalance]: Moved {player.PlayerName} [{player.SteamID}] to the team: {player.Team.ToString()} (After[tt:{ttPlayers.Count()}|ct:{ctPlayers.Count()}])");
+                logger.LogInformation($"Moved {player.PlayerName} [{player.SteamID}] to the team: {player.Team.ToString()} (After[tt:{ttPlayers.Count()}|ct:{ctPlayers.Count()}])");
             } else { break; }
             ttPlayers = PlayersTeams(CsTeam.Terrorist);
             ctPlayers = PlayersTeams(CsTeam.CounterTerrorist);
