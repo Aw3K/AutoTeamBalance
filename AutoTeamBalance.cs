@@ -36,15 +36,15 @@ public class AutoTeamBalance : BasePlugin
 {
     public override string ModuleName => "AutoTeamBalance";
     public override string ModuleAuthor => "NyggaBytes";
-    public override string ModuleVersion => "1.1.2";
+    public override string ModuleVersion => "1.1.3";
     public static string[] teamNames = new string[] { "TT", "CT" };
+    public Random rand = new Random();
     public List<MovedPlayerInfo> MovedPlayers = new List<MovedPlayerInfo>();
 
     public override void Load(bool hotReload)
     {
         MovedPlayers.Clear();
-        RegisterListener<Listeners.OnMapStart>(func => OnMapStartHandle());
-        base.Load(hotReload);
+        RegisterListener<Listeners.OnMapStart>(OnMapStartHandle);
     }
 
     #region Commands
@@ -110,7 +110,9 @@ public class AutoTeamBalance : BasePlugin
         }
         return HookResult.Continue;
     }
+    [GameEventHandler(HookMode.Post)]
     public HookResult OnplayerConnectFull(EventPlayerConnectFull @event, GameEventInfo @info) {
+        var gameRules = Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules").First().GameRules!;
         var player = @event.Userid;
         if (player == null
             || !player.IsValid
@@ -119,8 +121,10 @@ public class AutoTeamBalance : BasePlugin
             || AdminManager.PlayerHasPermissions(player, "@css/ban")
             || player.Team == CsTeam.Terrorist
             || player.Team == CsTeam.CounterTerrorist) { return HookResult.Continue; }
-        if (teamDiffCount() < 0) AddTimer(2.0f, () => { player.ChangeTeam(CsTeam.Terrorist); });
-        else if (teamDiffCount() > 0) AddTimer(2.0f, () => { player.ChangeTeam(CsTeam.CounterTerrorist); });
+        var tDF = teamDiffCount();
+        if (tDF < 0) AddTimer(2.0f, () => { player.ChangeTeam(CsTeam.Terrorist); });
+        else if (tDF > 0) AddTimer(2.0f, () => { player.ChangeTeam(CsTeam.CounterTerrorist); });
+        else if (gameRules.IsQueuedMatchmaking && tDF == 0) AddTimer(2.0f, () => { player.ChangeTeam((CsTeam)rand.Next(2,4)); });
         return HookResult.Continue;
     }
     #endregion
@@ -132,7 +136,7 @@ public class AutoTeamBalance : BasePlugin
         var ctPlayers = PlayersTeams(CsTeam.CounterTerrorist).Count();
         return ttPlayers - ctPlayers;
     }
-    public void OnMapStartHandle() {
+    public void OnMapStartHandle(string mapName) {
         MovedPlayers.Clear();
     }
     public List<CCSPlayerController> PlayersTeams(CsTeam team)
