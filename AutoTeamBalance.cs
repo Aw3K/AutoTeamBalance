@@ -37,7 +37,7 @@ public class AutoTeamBalance : BasePlugin
 {
     public override string ModuleName => " AutoTeamBalance";
     public override string ModuleAuthor => "NyggaBytes";
-    public override string ModuleVersion => "1.1.5";
+    public override string ModuleVersion => "1.1.6";
     public static string[] teamNames = new string[] { "TT", "CT" };
     public bool IsQueuedMatchmaking = false;
     public Random rand = new Random();
@@ -118,17 +118,19 @@ public class AutoTeamBalance : BasePlugin
     [GameEventHandler(HookMode.Post)]
     public HookResult OnplayerConnectFull(EventPlayerConnectFull @event, GameEventInfo @info) {
         var player = @event.Userid;
-        if (player == null
-            || !player.IsValid
-            || player.IsHLTV
-            || player.IsBot
-            || AdminManager.PlayerHasPermissions(player, "@css/ban")
-            || player.Team == CsTeam.Terrorist
-            || player.Team == CsTeam.CounterTerrorist) { return HookResult.Continue; }
-        var tDF = teamDiffCount();
-        if (tDF < 0) AddTimer(2.0f, () => { player.ChangeTeam(CsTeam.Terrorist); });
-        else if (tDF > 0) AddTimer(2.0f, () => { player.ChangeTeam(CsTeam.CounterTerrorist); });
-        else if (IsQueuedMatchmaking && tDF == 0) AddTimer(2.0f, () => { player.ChangeTeam((CsTeam)rand.Next(2,4)); });
+        AddTimer(1.5f, () => {
+            if (player == null
+                || !player.IsValid
+                || player.IsHLTV
+                || player.IsBot
+                || AdminManager.PlayerHasPermissions(player, "@css/ban")
+                || player.Team == CsTeam.Terrorist
+                || player.Team == CsTeam.CounterTerrorist) { return; }
+            var tDF = teamDiffCount();
+            if (tDF < 0) player.ChangeTeam(CsTeam.Terrorist); 
+            else if (tDF > 0) player.ChangeTeam(CsTeam.CounterTerrorist);
+            else if (IsQueuedMatchmaking && tDF == 0) player.ChangeTeam((CsTeam)rand.Next(2,4));
+        });
         return HookResult.Continue;
     }
     #endregion
