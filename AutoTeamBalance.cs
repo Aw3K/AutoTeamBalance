@@ -37,7 +37,7 @@ public class AutoTeamBalance : BasePlugin
 {
     public override string ModuleName => " AutoTeamBalance";
     public override string ModuleAuthor => "NyggaBytes";
-    public override string ModuleVersion => "1.1.6";
+    public override string ModuleVersion => "1.1.7";
     public static string[] teamNames = new string[] { "TT", "CT" };
     public bool IsQueuedMatchmaking = false;
     public Random rand = new Random();
@@ -118,28 +118,29 @@ public class AutoTeamBalance : BasePlugin
     [GameEventHandler(HookMode.Post)]
     public HookResult OnplayerConnectFull(EventPlayerConnectFull @event, GameEventInfo @info) {
         var player = @event.Userid;
-        AddTimer(1.5f, () => {
-            if (player == null
-                || !player.IsValid
-                || player.IsHLTV
-                || player.IsBot
-                || AdminManager.PlayerHasPermissions(player, "@css/ban")
-                || player.Team == CsTeam.Terrorist
-                || player.Team == CsTeam.CounterTerrorist) { return; }
-            var tDF = teamDiffCount();
-            if (tDF < 0) player.ChangeTeam(CsTeam.Terrorist); 
-            else if (tDF > 0) player.ChangeTeam(CsTeam.CounterTerrorist);
-            else if (IsQueuedMatchmaking && tDF == 0) player.ChangeTeam((CsTeam)rand.Next(2,4));
-        });
+        if (player == null
+            || !player.IsValid
+            || player.IsHLTV
+            || player.IsBot
+            || AdminManager.PlayerHasPermissions(player, "@css/ban")
+            ) { return HookResult.Continue; }
+        var tDF = teamDiffCount(player);
+        if (tDF < 0) { if (player.Team != CsTeam.Terrorist) player.ChangeTeam(CsTeam.Terrorist); }
+        else if (tDF > 0) { if (player.Team != CsTeam.CounterTerrorist) player.ChangeTeam(CsTeam.CounterTerrorist); }
+        else if (IsQueuedMatchmaking && tDF == 0 && player.Team != CsTeam.Terrorist && player.Team != CsTeam.CounterTerrorist) player.ChangeTeam((CsTeam)rand.Next(2,4));
+        var gamerule = Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules").First().GameRules!;
+        if (gamerule.WarmupPeriod) { player.Respawn(); }
         return HookResult.Continue;
     }
     #endregion
 
     #region functions
-    private int teamDiffCount()
+    private int teamDiffCount(CCSPlayerController player)
     {
         var ttPlayers = PlayersTeams(CsTeam.Terrorist).Count();
         var ctPlayers = PlayersTeams(CsTeam.CounterTerrorist).Count();
+        if (player.Team == CsTeam.Terrorist) ttPlayers--;
+        else if (player.Team == CsTeam.CounterTerrorist) ctPlayers--;
         return ttPlayers - ctPlayers;
     }
     public void OnMapStartHandle(string mapName) {
