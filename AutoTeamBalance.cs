@@ -37,7 +37,7 @@ public class AutoTeamBalance : BasePlugin
 {
     public override string ModuleName => " AutoTeamBalance";
     public override string ModuleAuthor => "NyggaBytes";
-    public override string ModuleVersion => "1.1.7";
+    public override string ModuleVersion => "1.1.8";
     public static string[] teamNames = new string[] { "TT", "CT" };
     public bool IsQueuedMatchmaking = false;
     public Random rand = new Random();
@@ -118,18 +118,46 @@ public class AutoTeamBalance : BasePlugin
     [GameEventHandler(HookMode.Post)]
     public HookResult OnplayerConnectFull(EventPlayerConnectFull @event, GameEventInfo @info) {
         var player = @event.Userid;
-        if (player == null
+        AddTimer(1.0f, () =>
+        {
+            if (player == null
             || !player.IsValid
             || player.IsHLTV
             || player.IsBot
             || AdminManager.PlayerHasPermissions(player, "@css/ban")
-            ) { return HookResult.Continue; }
-        var tDF = teamDiffCount(player);
-        if (tDF < 0) { if (player.Team != CsTeam.Terrorist) player.ChangeTeam(CsTeam.Terrorist); }
-        else if (tDF > 0) { if (player.Team != CsTeam.CounterTerrorist) player.ChangeTeam(CsTeam.CounterTerrorist); }
-        else if (IsQueuedMatchmaking && tDF == 0 && player.Team != CsTeam.Terrorist && player.Team != CsTeam.CounterTerrorist) player.ChangeTeam((CsTeam)rand.Next(2,4));
-        var gamerule = Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules").First().GameRules!;
-        if (gamerule.WarmupPeriod) { player.Respawn(); }
+            ) {
+                if (AdminManager.PlayerHasPermissions(player, "@css/ban")) logger.LogInformation($"[EventPlayerConnectFull][{player.PlayerName}] ignored for on join balance, have @css/ban permission");
+                return;
+            }
+            var tDF = teamDiffCount(player);
+            if (tDF < 0)
+            {
+                if (player.Team != CsTeam.Terrorist)
+                {
+                    player.ChangeTeam(CsTeam.Terrorist);
+                    logger.LogInformation($"[EventPlayerConnectFull][{player.PlayerName}] moved to Terrorists, teamDiffCount: {tDF}");
+                } else logger.LogInformation($"[EventPlayerConnectFull][{player.PlayerName}] couldn't be moved to Terrorists becouse is already in it, teamDiffCount: {tDF}");
+            }
+            else if (tDF > 0)
+            {
+                if (player.Team != CsTeam.CounterTerrorist)
+                {
+                    player.ChangeTeam(CsTeam.CounterTerrorist);
+                    logger.LogInformation($"[EventPlayerConnectFull][{player.PlayerName}] moved to CounterTerrorists, teamDiffCount: {tDF}");
+                }
+                else logger.LogInformation($"[EventPlayerConnectFull][{player.PlayerName}] couldn't be moved to CounterTerrorists becouse is already in it, teamDiffCount: {tDF}");
+            }
+            else if (IsQueuedMatchmaking && tDF == 0 && player.Team != CsTeam.Terrorist && player.Team != CsTeam.CounterTerrorist) {
+                CsTeam move = (CsTeam)rand.Next(2, 4);
+                player.ChangeTeam(move);
+                logger.LogInformation($"[EventPlayerConnectFull][{player.PlayerName}] was randomly moved to {move.ToString()}, teamDiffCount: {tDF}");
+            }
+            var gamerule = Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules").First().GameRules!;
+            if (gamerule.WarmupPeriod) {
+                player.Respawn();
+                logger.LogInformation($"[EventPlayerConnectFull][{player.PlayerName}] was respawned becouse WarmupPeriod");
+            }
+        });
         return HookResult.Continue;
     }
     #endregion
