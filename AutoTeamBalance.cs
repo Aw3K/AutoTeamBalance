@@ -153,7 +153,7 @@ public class AutoTeamBalance : BasePlugin
                 logger.LogInformation($"[EventPlayerConnectFull][{player.PlayerName}] was randomly moved to {move.ToString()}, teamDiffCount: {tDF}");
             }
             var gamerule = Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules").First().GameRules!;
-            if (gamerule.WarmupPeriod) {
+            if (gamerule.WarmupPeriod && (player.Team == CsTeam.Terrorist || player.Team == CsTeam.CounterTerrorist)) {
                 player.Respawn();
                 logger.LogInformation($"[EventPlayerConnectFull][{player.PlayerName}] was respawned becouse WarmupPeriod");
             }
