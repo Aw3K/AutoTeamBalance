@@ -13,7 +13,7 @@ Configuration: (Available as of v1.1.9)
 PlayersJoinBehaviour can have 3 states:
 - off <- completly disables this feature
 - default <- players will be forcefully moved to team where there is less players, when counts are the same player will be randomly moved to one team if team menu is disabled (detected with gamerule "IsQueuedMatchmaking")
-- forced <- same as default, but wont check gamerule/team menu, will be on by default
+- forced <- same as default, but wont check gamerule/team menu, will be on
 
-Theres one command available: css_atb (in game !atb - or any other prefix set in your config), @css/ban permission needed.
+Theres one command available: css_atb (in game !atb - or any other prefix set in your config), configured permission needed.
 Output will contains information about plugin version, current team counts that plugin uses for balance and list of players that were moved in that game (list clears on map load).
