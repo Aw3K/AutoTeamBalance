@@ -7,6 +7,7 @@ using CounterStrikeSharp.API.Modules.Utils;
 using Microsoft.Extensions.Logging;
 using System.Data;
 using System.Globalization;
+using System.Text.Json.Serialization;
 
 namespace AutoTeamBalance;
 
@@ -33,11 +34,20 @@ public class MovedPlayerInfo {
     }
 }
 
-public class AutoTeamBalance : BasePlugin
+public class AutoTeamBalanceConfig : BasePluginConfig
+{
+    [JsonPropertyName("PlayersJoinBehaviour")] public string PlayersJoinBehaviour { get; set; } = "default";
+    [JsonPropertyName("BasicPermissions")] public string BasicPermissions { get; set; } = "@css/ban";
+}
+
+public class AutoTeamBalance : BasePlugin, IPluginConfig<AutoTeamBalanceConfig>
 {
     public override string ModuleName => " AutoTeamBalance";
     public override string ModuleAuthor => "NyggaBytes";
-    public override string ModuleVersion => "1.1.8";
+    public override string ModuleVersion => "1.1.9";
+
+    public AutoTeamBalanceConfig Config { get; set; } = new();
+
     public static string[] teamNames = new string[] { "TT", "CT" };
     public bool IsQueuedMatchmaking = false;
     public Random rand = new Random();
@@ -56,24 +66,20 @@ public class AutoTeamBalance : BasePlugin
     [ConsoleCommand("css_atb", "Status of AutoTeamBalance Plugin.")]
     [CommandHelper(minArgs: 0, usage: "", whoCanExecute: CommandUsage.CLIENT_AND_SERVER)]
     public void OnATBCommand(CCSPlayerController? player, CommandInfo command) {
-        if (!AdminManager.PlayerHasPermissions(player, "@css/ban")) {
+        if (!AdminManager.PlayerHasPermissions(player, Config.BasicPermissions)) {
             player!.PrintToChat(Localizer["NoPermissions"]);
             return;
         }
-        List<string> output = new List<string>();
-        output.Clear();
-        output.Add("[\u0004AutoTeamBalance\u0001]");
-        output.Add(" \u0004Plugin Version\u0001: " + ModuleVersion);
-        output.Add(" \u0004Current known TeamCounts\u0001:  " + PlayersTeams(CsTeam.CounterTerrorist).Count() + " \u0007CTs \u0001| " + PlayersTeams(CsTeam.Terrorist).Count() + " \u0007TTs");
-        output.Add(" \u0004Current know Players after balance\u0001: ");
+        command.ReplyToCommand("[\u0004AutoTeamBalance\u0001]");
+        command.ReplyToCommand(" \u0004Plugin Version\u0001: " + ModuleVersion);
+        command.ReplyToCommand(" \u0004Current known TeamCounts\u0001:  " + PlayersTeams(CsTeam.CounterTerrorist).Count() + " \u0007CTs \u0001| " + PlayersTeams(CsTeam.Terrorist).Count() + " \u0007TTs");
+        command.ReplyToCommand(" \u0004Current know Players after balance\u0001: ");
         foreach (var moved in MovedPlayers)
         {
-            output.Add(" \u0004|> \u0001" + moved.timeOfSwitch + " \u0004[\u0001" + moved.playerName + "\u0004] - \u0007" + moved.teams[0] + " \u0004--> \u0007" + moved.teams[1] + " \u0004- \u0001TeamCount: \u0004[\u0001" + moved.teamCountBefore![1] + " \u0007CTs \u0001| " + moved.teamCountBefore[0] + " \u0007TTs\u0004] \u0004--> [\u0001" + moved.teamCountAfter![1] + " \u0007CTs \u0001| " + moved.teamCountAfter[0] + " \u0007TTs\u0004]>");
+            command.ReplyToCommand(" \u0004|> \u0001" + moved.timeOfSwitch + " \u0004[\u0001" + moved.playerName + "\u0004] - \u0007" + moved.teams[0] + " \u0004--> \u0007" + moved.teams[1] + " \u0004- \u0001TeamCount: \u0004[\u0001" + moved.teamCountBefore![1] + " \u0007CTs \u0001| " + moved.teamCountBefore[0] + " \u0007TTs\u0004] \u0004--> [\u0001" + moved.teamCountAfter![1] + " \u0007CTs \u0001| " + moved.teamCountAfter[0] + " \u0007TTs\u0004]>");
         }
-        if (MovedPlayers.Count() == 0) { output.Add(" \u0007 List is empty."); }
-        output.Add("[\u0001/\u0004AutoTeamBalance\u0001]");
-        if (player == null) foreach (var str in output) { Server.PrintToConsole(str); }
-        else foreach (var str in output) { player.PrintToChat(str); }
+        if (MovedPlayers.Count() == 0) { command.ReplyToCommand(" \u0007 List is empty."); }
+        command.ReplyToCommand("[\u0001/\u0004AutoTeamBalance\u0001]");
     }
     #endregion
 
@@ -120,13 +126,14 @@ public class AutoTeamBalance : BasePlugin
         var player = @event.Userid;
         AddTimer(1.0f, () =>
         {
-            if (player == null
+            if (Config.PlayersJoinBehaviour == "off"
+            || player == null
             || !player.IsValid
             || player.IsHLTV
             || player.IsBot
-            || AdminManager.PlayerHasPermissions(player, "@css/ban")
+            || AdminManager.PlayerHasPermissions(player, Config.BasicPermissions)
             ) {
-                if (AdminManager.PlayerHasPermissions(player, "@css/ban")) logger.LogInformation($"[EventPlayerConnectFull][{player.PlayerName}] ignored for on join balance, have @css/ban permission");
+                if (AdminManager.PlayerHasPermissions(player, Config.BasicPermissions) && Config.PlayersJoinBehaviour != "off") logger.LogInformation($"[EventPlayerConnectFull][{player.PlayerName}] ignored for on join balance, have '{Config.BasicPermissions}' permission");
                 return;
             }
             var tDF = teamDiffCount(player);
@@ -174,10 +181,20 @@ public class AutoTeamBalance : BasePlugin
     public void OnMapStartHandle(string mapName) {
         AddTimer(1.0f, () =>
         {
-            var gamerule = Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules").First().GameRules!;
-            IsQueuedMatchmaking = gamerule.IsQueuedMatchmaking;
-            if (!IsQueuedMatchmaking) logger.LogInformation($"Detected that teammenu is ENABLED, forced random upon join team switch: DISABLED");
-            else logger.LogInformation($"Detected that teammenu is DISABLED, forced random upon join team switch: ENABLED");
+            if (Config.PlayersJoinBehaviour == "off") {
+                IsQueuedMatchmaking = false;
+                logger.LogInformation($"PlayersJoinBehaviour is set to off, disabling forced team switch upon join completly");
+            } else if (Config.PlayersJoinBehaviour == "default") {
+                var gamerule = Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules").First().GameRules!;
+                IsQueuedMatchmaking = gamerule.IsQueuedMatchmaking;
+                if (!IsQueuedMatchmaking) logger.LogInformation($"Detected that teammenu is ENABLED, forced random upon join team switch: DISABLED");
+                else logger.LogInformation($"Detected that teammenu is DISABLED, forced random upon join team switch: ENABLED");
+            } else if (Config.PlayersJoinBehaviour == "forced")
+            {
+                IsQueuedMatchmaking = true;
+                logger.LogInformation($"PlayersJoinBehaviour is set to forced, forced team switch enabled");
+            }
+            
         });
         MovedPlayers.Clear();
     }
@@ -190,6 +207,22 @@ public class AutoTeamBalance : BasePlugin
               && p.Connected == PlayerConnectedState.PlayerConnected
               && p.SteamID.ToString().Length == 17
               && p.Team == team)).ToList();
+    }
+
+    public void OnConfigParsed(AutoTeamBalanceConfig config)
+    {
+        logger = Logger;
+        Config = config;
+        if (Config.PlayersJoinBehaviour == null || Config.PlayersJoinBehaviour.Length < 1 || !(Config.PlayersJoinBehaviour == "off" || Config.PlayersJoinBehaviour == "default" || Config.PlayersJoinBehaviour == "forced"))
+        {
+            Config.PlayersJoinBehaviour = "default";
+            logger.LogWarning($"PlayersJoinBehaviour not set in the config, defaulting to 'default'");
+        }
+        if (Config.BasicPermissions == null || Config.BasicPermissions.Length < 1)
+        {
+            Config.BasicPermissions = "@css/ban";
+            logger.LogWarning($"BasicPermissions not set in the config, defaulting to '@css/ban'");
+        }
     }
     #endregion
 }
