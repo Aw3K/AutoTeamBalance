@@ -1,8 +1,19 @@
 AutoTeamBalance is cssharp plugin for balancig teams on round start. Based on team counts, plugin will move random player to another team untill team diff will be less or equal to 1.
-Another pugin functionality is balancing players on join, they will be forcefully moved to team where there is less players, when counts are the same player will be randomly moved to one team if team menu is disabled (detected with gamerule "IsQueuedMatchmaking").
-Players with @css/ban permissions are ignored.
+Another pugin functionality is balancing players on join, you can configure its behaviour, more on that under Configuration.
+Players with configured permission are ignored.
 
-Theres one command available: css_atb (in game !atb - or any other prefix set in your config), @css/ban permission needed.
+Configuration: (Available as of v1.1.9)
+```json
+{ //cssharp folder/configs/plugins/AutoTeamBalance/AutoTeamBalance.json
+  "PlayersJoinBehaviour": "default", <- Behaviour of a plugin when player connects to a server
+  "BasicPermissions": "@css/ban", <- Permission needed for using (css_/!)atb command
+  "ConfigVersion": 1
+}
+```
+PlayersJoinBehaviour can have 3 states:
+- off <- completly disables this feature
+- default <- players will be forcefully moved to team where there is less players, when counts are the same player will be randomly moved to one team if team menu is disabled (detected with gamerule "IsQueuedMatchmaking")
+- forced <- same as default, but wont check gamerule/team menu, will be on
+
+Theres one command available: css_atb (in game !atb - or any other prefix set in your config), configured permission needed.
 Output will contains information about plugin version, current team counts that plugin uses for balance and list of players that were moved in that game (list clears on map load).
-
-In current version, no config from file is available.
