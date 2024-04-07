@@ -22,5 +22,8 @@ TeamCountMaxBehaviour can have 3 states:
 - spect <- moves player to spectators
 - kick <- kicks player
 
-Theres one command available: css_atb (in game !atb - or any other prefix set in your config), configured permission needed.
+Theres two command available: 
+- css_atb (in game !atb - or any other prefix set in your config), configured permission needed.
 Output will contains information about plugin version, configs, current team counts that plugin uses for balance and list of players that were moved in that game (list clears on map load).
+- css_scramble (in game !scramble), configured permission needed.
+Players in teams will be randomly scrambled, needs minimum of 4 players total.

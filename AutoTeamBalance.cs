@@ -40,7 +40,6 @@ public class AutoTeamBalanceConfig : BasePluginConfig
     [JsonPropertyName("BasicPermissions")] public string BasicPermissions { get; set; } = new("");
     [JsonPropertyName("TeamCountMax")] public int? TeamCountMax { get; set; }
     [JsonPropertyName("TeamCountMaxBehaviour")] public string TeamCountMaxBehaviour { get; set; } = new("");
-    [JsonPropertyName("ScrambleTeams")] public string ScrambleTeams { get; set; } = new(""); 
 }
 
 public class AutoTeamBalance : BasePlugin, IPluginConfig<AutoTeamBalanceConfig>
@@ -85,33 +84,24 @@ public class AutoTeamBalance : BasePlugin, IPluginConfig<AutoTeamBalanceConfig>
         if (MovedPlayers.Count() == 0) { command.ReplyToCommand(" \u0007 List is empty."); }
         command.ReplyToCommand($"[\u0001/\u0004AutoTeamBalance\u0001]");
     }
-    [ConsoleCommand("css_atbscramble", "Scramble teams.")]
+    [ConsoleCommand("css_scramble", "Scramble teams.")]
     [CommandHelper(minArgs: 0, usage: "", whoCanExecute: CommandUsage.CLIENT_AND_SERVER)]
     public void OnATBScrambleCommand(CCSPlayerController? player, CommandInfo command)
     {
-        List<CCSPlayerController> tmp = new List<CCSPlayerController>();
-        tmp.Clear();
-        tmp.AddRange(PlayersTeams(CsTeam.CounterTerrorist));
-        tmp.AddRange(PlayersTeams(CsTeam.Terrorist));
-        if (tmp.Count == 0 ) { command.ReplyToCommand($" \u0007No players available for scramble.");  return; }
-        while(tmp.Count() > 0)
+        if (!AdminManager.PlayerHasPermissions(player, Config.BasicPermissions))
         {
-            var selected = tmp[rand.Next(0, tmp.Count())];
-            if (selected != null && selected.IsValid) {
-                selected.SwitchTeam((CsTeam)((tmp.Count() % 2) + 2));
-                tmp.Remove(selected);
-            }
+            player!.PrintToChat(Localizer["NoPermissions"]);
+            return;
         }
-        
+        var result = ScrambleTeams();
+        if (result < 4) command.ReplyToCommand(Localizer["CantScramble"]);
+        else Server.PrintToChatAll(Localizer["TeamsScrambled"]);
     }
     #endregion
 
     #region Events
     [GameEventHandler(HookMode.Post)]
     public HookResult OnRoundPrestart(EventRoundPrestart @event, GameEventInfo info) {
-        if (Config.ScrambleTeams == "round") { 
-            if(ScrambleTeams() != 0) Server.PrintToChatAll(Localizer["TeamsScrambled"]);
-        };
         var ttPlayers = PlayersTeams(CsTeam.Terrorist);
         var ctPlayers = PlayersTeams(CsTeam.CounterTerrorist);
         while (Math.Abs(ttPlayers.Count() - ctPlayers.Count()) >= 2)
@@ -146,6 +136,30 @@ public class AutoTeamBalance : BasePlugin, IPluginConfig<AutoTeamBalanceConfig>
             MovedPlayers.Add(moved);
         }
         return HookResult.Continue;
+    }
+
+    private int ScrambleTeams()
+    {
+        List<CCSPlayerController> tmp = new List<CCSPlayerController>();
+        tmp.Clear();
+        tmp.AddRange(PlayersTeams(CsTeam.CounterTerrorist));
+        tmp.AddRange(PlayersTeams(CsTeam.Terrorist));
+        var playersScrambled = tmp.Count();
+        if (playersScrambled < 4) return tmp.Count();
+        logger.LogInformation($"[AutoTeamBalance] Scramble");
+        while (tmp.Count() > 0)
+        {
+            var selected = tmp[rand.Next(0, tmp.Count())];
+            if (selected != null && selected.IsValid)
+            {
+                CsTeam team = (CsTeam)((tmp.Count() % 2) + 2);
+                selected.SwitchTeam(team);
+                logger.LogInformation($" {selected.PlayerName} {selected.UserId} -> {team.ToString()}");
+                tmp.Remove(selected);
+            }
+        }
+        logger.LogInformation($"[/AutoTeamBalance]");
+        return playersScrambled;
     }
 
     [GameEventHandler(HookMode.Post)]
@@ -273,11 +287,6 @@ public class AutoTeamBalance : BasePlugin, IPluginConfig<AutoTeamBalanceConfig>
         {
             Config.TeamCountMax = 5;
             logger.LogWarning($"TeamCountMax not set in the config/set wrong <0-32>, defaulting to 5");
-        }
-        if (Config.ScrambleTeams == null || Config.ScrambleTeams.Length < 1 || !(Config.ScrambleTeams == "off" || Config.ScrambleTeams == "round"))
-        {
-            Config.ScrambleTeams = "off";
-            logger.LogWarning($"ScrambleTeams not set in the config, defaulting to 'off'");
         }
     }
     #endregion
