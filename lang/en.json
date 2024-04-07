@@ -1,4 +1,5 @@
 {
   "ForcedChangedTeam": " [\u0004AutoTeamBalance\u0001] \u0007Moved You to enemy team for balance.",
-  "NoPermissions": " [\u0004AutoTeamBalance\u0001] \u0007Only administrators can use this feature."
+  "NoPermissions": " [\u0004AutoTeamBalance\u0001] \u0007Only administrators can use this feature.",
+  "TeamsScrambled": " [\u0004AutoTeamBalance\u0001] \u0007Teams Scrambled!"
 }

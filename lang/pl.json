@@ -1,4 +1,5 @@
 {
   "ForcedChangedTeam": " [\u0004AutoTeamBalance\u0001] \u0007Przeniesiono Cię do przeciwnej drużyny dla balansu.",
-  "NoPermissions": " [\u0004AutoTeamBalance\u0001] \u0007Komenda dostępna tylko dla administracji."
+  "NoPermissions": " [\u0004AutoTeamBalance\u0001] \u0007Komenda dostępna tylko dla administracji.",
+  "TeamsScrambled": " [\u0004AutoTeamBalance\u0001] \u0007Drużyny wymieszane!"
 }

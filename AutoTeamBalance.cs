@@ -28,7 +28,7 @@ public class MovedPlayerInfo {
     }
     public void LastSet(int[] teamCountAfter, string time) {
         var playerAfter = Utilities.GetPlayerFromSteamId(this.SteamID);
-        if (playerAfter != null) { this.teams[1] = teamNames[playerAfter.TeamNum - 2]; }
+        if (playerAfter != null) { this.teams![1] = teamNames[playerAfter.TeamNum - 2]; }
         this.teamCountAfter = (int[]?)teamCountAfter.Clone();
         this.timeOfSwitch = time;
     }
@@ -40,13 +40,14 @@ public class AutoTeamBalanceConfig : BasePluginConfig
     [JsonPropertyName("BasicPermissions")] public string BasicPermissions { get; set; } = new("");
     [JsonPropertyName("TeamCountMax")] public int? TeamCountMax { get; set; }
     [JsonPropertyName("TeamCountMaxBehaviour")] public string TeamCountMaxBehaviour { get; set; } = new("");
+    [JsonPropertyName("ScrambleTeams")] public string ScrambleTeams { get; set; } = new(""); 
 }
 
 public class AutoTeamBalance : BasePlugin, IPluginConfig<AutoTeamBalanceConfig>
 {
-    public override string ModuleName => " AutoTeamBalance";
+    public override string ModuleName => "AutoTeamBalance";
     public override string ModuleAuthor => "NyggaBytes";
-    public override string ModuleVersion => "1.2.0";
+    public override string ModuleVersion => "1.2.1";
 
     public AutoTeamBalanceConfig Config { get; set; } = new();
 
@@ -79,16 +80,38 @@ public class AutoTeamBalance : BasePlugin, IPluginConfig<AutoTeamBalanceConfig>
         command.ReplyToCommand($" \u0004Current know Players after balance\u0001: ");
         foreach (var moved in MovedPlayers)
         {
-            command.ReplyToCommand($" \u0004|> \u0001{moved.timeOfSwitch} \u0004[\u0001{moved.playerName}\u0004] - \u0007{moved.teams[0]} \u0004--> \u0007{moved.teams[1]} \u0004- \u0001TeamCount: \u0004[\u0001{moved.teamCountBefore![1]} \u0007CTs \u0001| {moved.teamCountBefore[0]} \u0007TTs\u0004] \u0004--> [\u0001{moved.teamCountAfter![1]} \u0007CTs \u0001| {moved.teamCountAfter[0]} \u0007TTs\u0004]>");
+            command.ReplyToCommand($" \u0004|> \u0001{moved.timeOfSwitch} \u0004[\u0001{moved.playerName}\u0004] - \u0007{moved.teams![0]} \u0004--> \u0007{moved.teams[1]} \u0004- \u0001TeamCount: \u0004[\u0001{moved.teamCountBefore![1]} \u0007CTs \u0001| {moved.teamCountBefore[0]} \u0007TTs\u0004] \u0004--> [\u0001{moved.teamCountAfter![1]} \u0007CTs \u0001| {moved.teamCountAfter[0]} \u0007TTs\u0004]>");
         }
         if (MovedPlayers.Count() == 0) { command.ReplyToCommand(" \u0007 List is empty."); }
         command.ReplyToCommand($"[\u0001/\u0004AutoTeamBalance\u0001]");
+    }
+    [ConsoleCommand("css_atbscramble", "Scramble teams.")]
+    [CommandHelper(minArgs: 0, usage: "", whoCanExecute: CommandUsage.CLIENT_AND_SERVER)]
+    public void OnATBScrambleCommand(CCSPlayerController? player, CommandInfo command)
+    {
+        List<CCSPlayerController> tmp = new List<CCSPlayerController>();
+        tmp.Clear();
+        tmp.AddRange(PlayersTeams(CsTeam.CounterTerrorist));
+        tmp.AddRange(PlayersTeams(CsTeam.Terrorist));
+        if (tmp.Count == 0 ) { command.ReplyToCommand($" \u0007No players available for scramble.");  return; }
+        while(tmp.Count() > 0)
+        {
+            var selected = tmp[rand.Next(0, tmp.Count())];
+            if (selected != null && selected.IsValid) {
+                selected.SwitchTeam((CsTeam)((tmp.Count() % 2) + 2));
+                tmp.Remove(selected);
+            }
+        }
+        
     }
     #endregion
 
     #region Events
     [GameEventHandler(HookMode.Post)]
     public HookResult OnRoundPrestart(EventRoundPrestart @event, GameEventInfo info) {
+        if (Config.ScrambleTeams == "round") { 
+            if(ScrambleTeams() != 0) Server.PrintToChatAll(Localizer["TeamsScrambled"]);
+        };
         var ttPlayers = PlayersTeams(CsTeam.Terrorist);
         var ctPlayers = PlayersTeams(CsTeam.CounterTerrorist);
         while (Math.Abs(ttPlayers.Count() - ctPlayers.Count()) >= 2)
@@ -124,6 +147,7 @@ public class AutoTeamBalance : BasePlugin, IPluginConfig<AutoTeamBalanceConfig>
         }
         return HookResult.Continue;
     }
+
     [GameEventHandler(HookMode.Post)]
     public HookResult OnplayerConnectFull(EventPlayerConnectFull @event, GameEventInfo @info) {
         var player = @event.Userid;
@@ -135,7 +159,7 @@ public class AutoTeamBalance : BasePlugin, IPluginConfig<AutoTeamBalanceConfig>
             || player.IsHLTV
             || player.IsBot
             || AdminManager.PlayerHasPermissions(player, Config.BasicPermissions)){
-                if (AdminManager.PlayerHasPermissions(player, Config.BasicPermissions) && Config.PlayersJoinBehaviour != "off") logger.LogInformation($"[EventPlayerConnectFull][{player.PlayerName}] ignored for on join balance, have '{Config.BasicPermissions}' permission");
+                if (AdminManager.PlayerHasPermissions(player, Config.BasicPermissions) && Config.PlayersJoinBehaviour != "off") logger.LogInformation($"[EventPlayerConnectFull][{player!.PlayerName}] ignored for on join balance, have '{Config.BasicPermissions}' permission");
                 return;
             }
 
@@ -249,6 +273,11 @@ public class AutoTeamBalance : BasePlugin, IPluginConfig<AutoTeamBalanceConfig>
         {
             Config.TeamCountMax = 5;
             logger.LogWarning($"TeamCountMax not set in the config/set wrong <0-32>, defaulting to 5");
+        }
+        if (Config.ScrambleTeams == null || Config.ScrambleTeams.Length < 1 || !(Config.ScrambleTeams == "off" || Config.ScrambleTeams == "round"))
+        {
+            Config.ScrambleTeams = "off";
+            logger.LogWarning($"ScrambleTeams not set in the config, defaulting to 'off'");
         }
     }
     #endregion
