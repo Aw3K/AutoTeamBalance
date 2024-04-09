@@ -38,6 +38,7 @@ public class AutoTeamBalanceConfig : BasePluginConfig
 {
     [JsonPropertyName("PlayersJoinBehaviour")] public string PlayersJoinBehaviour { get; set; } = new("");
     [JsonPropertyName("BasicPermissions")] public string BasicPermissions { get; set; } = new("");
+    [JsonPropertyName("IgnorePlayerWithBP")] public string IgnorePlayerWithBP { get; set; } = new("");
     [JsonPropertyName("TeamCountMax")] public int? TeamCountMax { get; set; }
     [JsonPropertyName("TeamCountMaxBehaviour")] public string TeamCountMaxBehaviour { get; set; } = new("");
 }
@@ -46,7 +47,7 @@ public class AutoTeamBalance : BasePlugin, IPluginConfig<AutoTeamBalanceConfig>
 {
     public override string ModuleName => "AutoTeamBalance";
     public override string ModuleAuthor => "NyggaBytes";
-    public override string ModuleVersion => "1.2.1";
+    public override string ModuleVersion => "1.2.2";
 
     public AutoTeamBalanceConfig Config { get; set; } = new();
 
@@ -171,13 +172,17 @@ public class AutoTeamBalance : BasePlugin, IPluginConfig<AutoTeamBalanceConfig>
             || player == null
             || !player.IsValid
             || player.IsHLTV
-            || player.IsBot
-            || AdminManager.PlayerHasPermissions(player, Config.BasicPermissions)){
-                if (AdminManager.PlayerHasPermissions(player, Config.BasicPermissions) && Config.PlayersJoinBehaviour != "off") logger.LogInformation($"[EventPlayerConnectFull][{player!.PlayerName}] ignored for on join balance, have '{Config.BasicPermissions}' permission");
+            || player.IsBot){
                 return;
             }
 
-            if ((PlayersTeams(CsTeam.Terrorist).Count() + PlayersTeams(CsTeam.CounterTerrorist).Count()) >= Config.TeamCountMax * 2) {
+            if(Config.IgnorePlayerWithBP == "true" && AdminManager.PlayerHasPermissions(player, Config.BasicPermissions))
+            {
+                logger.LogInformation($"[EventPlayerConnectFull][{player!.PlayerName}] ignored for on join balance, have '{Config.BasicPermissions}' permission");
+                return;
+            }
+
+        if ((PlayersTeams(CsTeam.Terrorist).Count() + PlayersTeams(CsTeam.CounterTerrorist).Count()) >= Config.TeamCountMax * 2) {
                 if (Config.TeamCountMaxBehaviour == "none") return;
                 else if (Config.TeamCountMaxBehaviour == "spect")
                 {
@@ -282,6 +287,11 @@ public class AutoTeamBalance : BasePlugin, IPluginConfig<AutoTeamBalanceConfig>
         {
             Config.BasicPermissions = "@css/ban";
             logger.LogWarning($"BasicPermissions not set in the config, defaulting to '@css/ban'");
+        }
+        if (Config.IgnorePlayerWithBP == null || Config.IgnorePlayerWithBP.Length < 1 || !(Config.IgnorePlayerWithBP == "true" || Config.IgnorePlayerWithBP == "false"))
+        {
+            Config.IgnorePlayerWithBP = "true";
+            logger.LogWarning($"IgnorePlayerWithBP not set in the config, defaulting to 'true'");
         }
         if (Config.TeamCountMax < 0 || Config.TeamCountMax > 32 || !Config.TeamCountMax.HasValue)
         {

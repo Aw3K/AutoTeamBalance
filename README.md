@@ -7,6 +7,7 @@ Configuration: (Available as of v1.1.9, Team counts/behaviour from v1.2.0)
 { //cssharp folder/configs/plugins/AutoTeamBalance/AutoTeamBalance.json
   "PlayersJoinBehaviour": "default", <- Behaviour of a plugin when player connects to a server
   "BasicPermissions": "@css/ban", <- Permission needed for using (css_/!)atb command
+  "IgnorePlayerWithBP": "true", <- Should plugin ignore players with BasicPermissions for balance when they connect
   "TeamCountMax": 5, <- max players that can be in team, so plugin won't exceed it
   "TeamCountMaxBehaviour": "none", <- behaviour of plugin when teams are at max capacity
   "ConfigVersion": 1
