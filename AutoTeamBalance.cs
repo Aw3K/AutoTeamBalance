@@ -47,7 +47,7 @@ public class AutoTeamBalance : BasePlugin, IPluginConfig<AutoTeamBalanceConfig>
 {
     public override string ModuleName => "AutoTeamBalance";
     public override string ModuleAuthor => "NyggaBytes";
-    public override string ModuleVersion => "1.2.2";
+    public override string ModuleVersion => "1.2.3";
 
     public AutoTeamBalanceConfig Config { get; set; } = new();
 
