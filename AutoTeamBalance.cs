@@ -36,6 +36,8 @@ public class MovedPlayerInfo {
 
 public class AutoTeamBalanceConfig : BasePluginConfig
 {
+    [JsonPropertyName("GameMode")] public string GameMode { get; set; } = new("");
+    [JsonPropertyName("MaxDifference")] public int? MaxDifference { get; set; }
     [JsonPropertyName("PlayersJoinBehaviour")] public string PlayersJoinBehaviour { get; set; } = new("");
     [JsonPropertyName("BasicPermissions")] public string BasicPermissions { get; set; } = new("");
     [JsonPropertyName("IgnorePlayerWithBP")] public string IgnorePlayerWithBP { get; set; } = new("");
@@ -47,7 +49,7 @@ public class AutoTeamBalance : BasePlugin, IPluginConfig<AutoTeamBalanceConfig>
 {
     public override string ModuleName => "AutoTeamBalance";
     public override string ModuleAuthor => "NyggaBytes";
-    public override string ModuleVersion => "1.2.3";
+    public override string ModuleVersion => "1.2.4";
 
     public AutoTeamBalanceConfig Config { get; set; } = new();
 
@@ -75,7 +77,7 @@ public class AutoTeamBalance : BasePlugin, IPluginConfig<AutoTeamBalanceConfig>
         }
         command.ReplyToCommand($"[\u0004AutoTeamBalance\u0001]");
         command.ReplyToCommand($" \u0004Plugin Version\u0001: {ModuleVersion}");
-        command.ReplyToCommand($" \u0004Plugin Config\u0001: {Config.BasicPermissions} \u0004| \u0001{Config.PlayersJoinBehaviour} \u0004| \u0001{Config.TeamCountMax} \u0004| \u0001{Config.TeamCountMaxBehaviour}");
+        command.ReplyToCommand($" \u0004Plugin Config\u0001: {Config.BasicPermissions} \u0004| \u0001{Config.GameMode} \u0004| \u0001{Config.PlayersJoinBehaviour} \u0004| \u0001{Config.TeamCountMax} \u0004| \u0001{Config.TeamCountMaxBehaviour}");
         command.ReplyToCommand($" \u0004Current known TeamCounts\u0001:  {PlayersTeams(CsTeam.CounterTerrorist).Count()} \u0007CTs \u0001| {PlayersTeams(CsTeam.Terrorist).Count()} \u0007TTs");
         command.ReplyToCommand($" \u0004Current know Players after balance\u0001: ");
         foreach (var moved in MovedPlayers)
@@ -103,9 +105,10 @@ public class AutoTeamBalance : BasePlugin, IPluginConfig<AutoTeamBalanceConfig>
     #region Events
     [GameEventHandler(HookMode.Post)]
     public HookResult OnRoundPrestart(EventRoundPrestart @event, GameEventInfo info) {
+        if (Config.GameMode != "default") return HookResult.Continue;
         var ttPlayers = PlayersTeams(CsTeam.Terrorist);
         var ctPlayers = PlayersTeams(CsTeam.CounterTerrorist);
-        while (Math.Abs(ttPlayers.Count() - ctPlayers.Count()) >= 2)
+        while (Math.Abs(ttPlayers.Count() - ctPlayers.Count()) >= Config.MaxDifference)
         {
             Random random = new Random();
             MovedPlayerInfo moved = new MovedPlayerInfo();
@@ -138,31 +141,26 @@ public class AutoTeamBalance : BasePlugin, IPluginConfig<AutoTeamBalanceConfig>
         }
         return HookResult.Continue;
     }
-
-    private int ScrambleTeams()
-    {
-        List<CCSPlayerController> tmp = new List<CCSPlayerController>();
-        tmp.Clear();
-        tmp.AddRange(PlayersTeams(CsTeam.CounterTerrorist));
-        tmp.AddRange(PlayersTeams(CsTeam.Terrorist));
-        var playersScrambled = tmp.Count();
-        if (playersScrambled < 4) return tmp.Count();
-        logger.LogInformation($"[AutoTeamBalance] Scramble");
-        while (tmp.Count() > 0)
-        {
-            var selected = tmp[rand.Next(0, tmp.Count())];
-            if (selected != null && selected.IsValid)
+    [GameEventHandler(HookMode.Post)]
+    public HookResult OnPlayerDeath(EventPlayerDeath @event, GameEventInfo @info) {
+        if (Config.GameMode != "gungame") return HookResult.Continue;
+        var player = @event.Userid;
+        if (player != null && player.IsValid && player.Connected == PlayerConnectedState.PlayerConnected && !player.IsBot) {
+            var ttPlayers = PlayersTeams(CsTeam.Terrorist);
+            var ctPlayers = PlayersTeams(CsTeam.CounterTerrorist);
+            if (player.Team == CsTeam.Terrorist && (ttPlayers.Count() - ctPlayers.Count()) >= Config.MaxDifference)
             {
-                CsTeam team = (CsTeam)((tmp.Count() % 2) + 2);
-                selected.SwitchTeam(team);
-                logger.LogInformation($" {selected.PlayerName} {selected.UserId} -> {team.ToString()}");
-                tmp.Remove(selected);
+                player.SwitchTeam(CsTeam.CounterTerrorist);
+                player.PrintToChat(Localizer["ForcedChangedTeam"]);
+            }
+            else if (player.Team == CsTeam.CounterTerrorist && (ctPlayers.Count() - ttPlayers.Count()) >= Config.MaxDifference)
+            {
+                player.SwitchTeam(CsTeam.Terrorist);
+                player.PrintToChat(Localizer["ForcedChangedTeam"]);
             }
         }
-        logger.LogInformation($"[/AutoTeamBalance]");
-        return playersScrambled;
+        return HookResult.Continue;
     }
-
     [GameEventHandler(HookMode.Post)]
     public HookResult OnplayerConnectFull(EventPlayerConnectFull @event, GameEventInfo @info) {
         var player = @event.Userid;
@@ -230,6 +228,29 @@ public class AutoTeamBalance : BasePlugin, IPluginConfig<AutoTeamBalanceConfig>
     #endregion
 
     #region functions
+    private int ScrambleTeams()
+    {
+        List<CCSPlayerController> tmp = new List<CCSPlayerController>();
+        tmp.Clear();
+        tmp.AddRange(PlayersTeams(CsTeam.CounterTerrorist));
+        tmp.AddRange(PlayersTeams(CsTeam.Terrorist));
+        var playersScrambled = tmp.Count();
+        if (playersScrambled < 4) return tmp.Count();
+        logger.LogInformation($"[AutoTeamBalance] Scramble");
+        while (tmp.Count() > 0)
+        {
+            var selected = tmp[rand.Next(0, tmp.Count())];
+            if (selected != null && selected.IsValid)
+            {
+                CsTeam team = (CsTeam)((tmp.Count() % 2) + 2);
+                selected.SwitchTeam(team);
+                logger.LogInformation($" {selected.PlayerName} {selected.UserId} -> {team.ToString()}");
+                tmp.Remove(selected);
+            }
+        }
+        logger.LogInformation($"[/AutoTeamBalance]");
+        return playersScrambled;
+    }
     private int teamDiffCount(CCSPlayerController player)
     {
         var ttPlayers = PlayersTeams(CsTeam.Terrorist).Count();
@@ -273,6 +294,16 @@ public class AutoTeamBalance : BasePlugin, IPluginConfig<AutoTeamBalanceConfig>
     {
         logger = Logger;
         Config = config;
+        if (Config.GameMode == null || Config.GameMode.Length < 1 || !(Config.GameMode == "default" || Config.GameMode == "gungame"))
+        {
+            Config.GameMode = "default";
+            logger.LogWarning($"GameMode not set in the config, defaulting to 'default'");
+        }
+        if (Config.MaxDifference < 2 || !Config.MaxDifference.HasValue)
+        {
+            Config.MaxDifference = 2;
+            logger.LogWarning($"MaxDifference not set in the config/set wrong <2-oo>, defaulting to 2");
+        }
         if (Config.PlayersJoinBehaviour == null || Config.PlayersJoinBehaviour.Length < 1 || !(Config.PlayersJoinBehaviour == "off" || Config.PlayersJoinBehaviour == "default" || Config.PlayersJoinBehaviour == "forced"))
         {
             Config.PlayersJoinBehaviour = "default";

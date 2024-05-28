@@ -2,9 +2,11 @@ AutoTeamBalance is cssharp plugin for balancig teams on round start. Based on te
 Another pugin functionality is balancing players on join, you can configure its behaviour, more on that under Configuration.
 Players with configured permission are ignored.
 
-Configuration: (Available as of v1.1.9, Team counts/behaviour from v1.2.0)
+Configuration: (Available as of v1.1.9, Team counts/behaviour from v1.2.0, GameMode/MaxDifference from v1.2.4)
 ```json
 { //cssharp folder/configs/plugins/AutoTeamBalance/AutoTeamBalance.json
+  "GameMode": "default", <- Type of a game server is currently running
+  "MaxDifference": 2, <- Minimum team difference for auto team balance to work (can't be less than 2, will crash server in default GameMode)
   "PlayersJoinBehaviour": "default", <- Behaviour of a plugin when player connects to a server
   "BasicPermissions": "@css/ban", <- Permission needed for using (css_/!)atb command
   "IgnorePlayerWithBP": "true", <- Should plugin ignore players with BasicPermissions for balance when they connect
@@ -13,6 +15,10 @@ Configuration: (Available as of v1.1.9, Team counts/behaviour from v1.2.0)
   "ConfigVersion": 1
 }
 ```
+GameMode can have 2 states:
+- default <- use it for round based game modes
+- gungame <- as name suggests, use on game modes where rounds don't end, balance will happen on individual player deaths
+
 PlayersJoinBehaviour can have 3 states:
 - off <- completly disables this feature
 - default <- players will be forcefully moved to team where there is less players, when counts are the same player will be randomly moved to one team if team menu is disabled (detected with gamerule "IsQueuedMatchmaking")
