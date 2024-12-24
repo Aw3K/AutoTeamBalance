@@ -8,8 +8,8 @@
 
   <ItemGroup>
 	  <Reference Include="CounterStrikeSharp.API" />
-	  <PackageReference Include="CounterStrikeSharp.API" Version="1.0.235" />
-	  <PackageReference Include="Microsoft.Extensions.Localization" Version="8.0.6" />
+	  <PackageReference Include="CounterStrikeSharp.API" Version="1.0.294" />
+	  <PackageReference Include="Microsoft.Extensions.Localization" Version="9.0.0" />
   </ItemGroup>
 
 </Project>

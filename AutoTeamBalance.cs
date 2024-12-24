@@ -3,9 +3,11 @@ using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
 using CounterStrikeSharp.API.Modules.Admin;
 using CounterStrikeSharp.API.Modules.Commands;
+using CounterStrikeSharp.API.Modules.Menu;
 using CounterStrikeSharp.API.Modules.Utils;
 using Microsoft.Extensions.Logging;
 using System.Data;
+using System.Diagnostics.Eventing.Reader;
 using System.Globalization;
 using System.Text.Json.Serialization;
 
@@ -42,6 +44,7 @@ public class AutoTeamBalanceConfig : BasePluginConfig
     [JsonPropertyName("BasicPermissions")] public string BasicPermissions { get; set; } = new("");
     [JsonPropertyName("IgnorePlayerWithBP")] public string IgnorePlayerWithBP { get; set; } = new("");
     [JsonPropertyName("TeamCountMax")] public int? TeamCountMax { get; set; }
+    [JsonPropertyName("EnableScramble")] public int? EnableScramble { get; set; }
     [JsonPropertyName("TeamCountMaxBehaviour")] public string TeamCountMaxBehaviour { get; set; } = new("");
 }
 
@@ -49,7 +52,7 @@ public class AutoTeamBalance : BasePlugin, IPluginConfig<AutoTeamBalanceConfig>
 {
     public override string ModuleName => "AutoTeamBalance";
     public override string ModuleAuthor => "NyggaBytes";
-    public override string ModuleVersion => "1.2.4";
+    public override string ModuleVersion => "1.2.7";
 
     public AutoTeamBalanceConfig Config { get; set; } = new();
 
@@ -58,16 +61,93 @@ public class AutoTeamBalance : BasePlugin, IPluginConfig<AutoTeamBalanceConfig>
     public Random rand = new Random();
     public required ILogger logger;
     public List<MovedPlayerInfo> MovedPlayers = new List<MovedPlayerInfo>();
+    public List<CCSPlayerController> playersToMove = new List<CCSPlayerController>();
 
     public override void Load(bool hotReload)
     {
         MovedPlayers.Clear();
+        playersToMove.Clear();
         logger = Logger;
         logger.LogInformation($"Plugin version: {ModuleVersion}");
         RegisterListener<Listeners.OnMapStart>(OnMapStartHandle);
     }
 
     #region Commands
+    [ConsoleCommand("css_atbsw", "Switch players teams")]
+    [CommandHelper(minArgs: 0, usage: "", whoCanExecute: CommandUsage.CLIENT_ONLY)]
+    public void OnATBSwitchCommand(CCSPlayerController? player, CommandInfo command) {
+        if (player == null) return;
+        if (!AdminManager.PlayerHasPermissions(player, Config.BasicPermissions))
+        {
+            player!.PrintToChat(Localizer["NoPermissions"]);
+            return;
+        }
+        CenterHtmlMenu menu = new("Team Switch", this);
+        CenterHtmlMenu menuMoveOne = new("Move One Player", this);
+        CenterHtmlMenu menuSwitchOne = new("Select First Player", this);
+        CenterHtmlMenu menuSwitchTwo = new("Select Secound Player", this);
+
+        menu.AddMenuOption("Move One", (player, option) => {
+            MenuManager.CloseActiveMenu(player);
+            foreach (var p in Utilities.GetPlayers().Where(p => p.IsValid && !p.IsBot && !p.IsHLTV && (p.Team == CsTeam.Terrorist || p.Team == CsTeam.CounterTerrorist)))
+            {
+                menuMoveOne.AddMenuOption(p.PlayerName + "[" + ((p.Team == CsTeam.Terrorist) ? "TT" : "CT") + "]", (MOplayer, MOoption) => {
+                    if (playersToMove.Contains(p))
+                    {
+                        MenuManager.CloseActiveMenu(player);
+                        player.PrintToChat($"[\u0004AutoTeamBalance\u0001] Player {p.PlayerName} already marked for TeamSwitch on round end.");
+                    }
+                    else
+                    {
+                        playersToMove.Add(p);
+                        MenuManager.CloseActiveMenu(player);
+                        player.PrintToChat($"[\u0004AutoTeamBalance\u0001] Marked {p.PlayerName} for TeamSwitch on round end.");
+                    }
+                });
+            }
+            menuMoveOne.Open(player);
+        });
+        menu.AddMenuOption("Switch", (player, option) => {
+            MenuManager.CloseActiveMenu(player);
+            foreach (var p in Utilities.GetPlayers().Where(p => p.IsValid && !p.IsBot && !p.IsHLTV && p.Team == CsTeam.Terrorist))
+            {
+                menuSwitchOne.AddMenuOption(p.PlayerName + "[" + ((p.Team == CsTeam.Terrorist) ? "TT" : "CT") + "]", (SOplayer, SOoption) => {
+                    if (playersToMove.Contains(p))
+                    {
+                        MenuManager.CloseActiveMenu(player);
+                        player.PrintToChat($"[\u0004AutoTeamBalance\u0001] Player {p.PlayerName} already marked for TeamSwitch on round end.");
+                    }
+                    else
+                    {
+                        playersToMove.Add(p);
+                        MenuManager.CloseActiveMenu(player);
+                        player.PrintToChat($"[\u0004AutoTeamBalance\u0001] Marked {p.PlayerName} for TeamSwitch on round end.");
+                        foreach (var p in Utilities.GetPlayers().Where(p => p.IsValid && !p.IsBot && !p.IsHLTV && p.Team == CsTeam.CounterTerrorist))
+                        {
+                            menuSwitchTwo.AddMenuOption(p.PlayerName + "[" + ((p.Team == CsTeam.Terrorist) ? "TT" : "CT") + "]", (STplayer, SToption) =>
+                            {
+                                if (playersToMove.Contains(p))
+                                {
+                                    MenuManager.CloseActiveMenu(player);
+                                    player.PrintToChat($"[\u0004AutoTeamBalance\u0001] Player {p.PlayerName} already marked for TeamSwitch on round end.");
+                                }
+                                else
+                                {
+                                    playersToMove.Add(p);
+                                    MenuManager.CloseActiveMenu(player);
+                                    player.PrintToChat($"[\u0004AutoTeamBalance\u0001] Marked {p.PlayerName} for TeamSwitch on round end.");
+                                }
+                            });
+                        }
+                        menuSwitchTwo.Open(player);
+                    }
+                });
+            }
+            menuSwitchOne.Open(player);
+        });
+        menu.Open(player);
+    }
+
     [ConsoleCommand("css_atb", "Status of AutoTeamBalance Plugin.")]
     [CommandHelper(minArgs: 0, usage: "", whoCanExecute: CommandUsage.CLIENT_AND_SERVER)]
     public void OnATBCommand(CCSPlayerController? player, CommandInfo command) {
@@ -76,8 +156,9 @@ public class AutoTeamBalance : BasePlugin, IPluginConfig<AutoTeamBalanceConfig>
             return;
         }
         command.ReplyToCommand($"[\u0004AutoTeamBalance\u0001]");
+        command.ReplyToCommand($" \u0004Other commands\u0001: atbsw (switches players) | atbsc (scrambles teams)");
         command.ReplyToCommand($" \u0004Plugin Version\u0001: {ModuleVersion}");
-        command.ReplyToCommand($" \u0004Plugin Config\u0001: {Config.BasicPermissions} \u0004| \u0001{Config.GameMode} \u0004| \u0001{Config.PlayersJoinBehaviour} \u0004| \u0001{Config.TeamCountMax} \u0004| \u0001{Config.TeamCountMaxBehaviour}");
+        command.ReplyToCommand($" \u0004Plugin Config\u0001: {Config.BasicPermissions} \u0004| \u0001{Config.GameMode} \u0004| \u0001{Config.PlayersJoinBehaviour} \u0004| \u0001{Config.TeamCountMax} \u0004| \u0001{Config.TeamCountMaxBehaviour} \u0004| \u0001{Config.EnableScramble}");
         command.ReplyToCommand($" \u0004Current known TeamCounts\u0001:  {PlayersTeams(CsTeam.CounterTerrorist).Count()} \u0007CTs \u0001| {PlayersTeams(CsTeam.Terrorist).Count()} \u0007TTs");
         command.ReplyToCommand($" \u0004Current know Players after balance\u0001: ");
         foreach (var moved in MovedPlayers)
@@ -87,13 +168,18 @@ public class AutoTeamBalance : BasePlugin, IPluginConfig<AutoTeamBalanceConfig>
         if (MovedPlayers.Count() == 0) { command.ReplyToCommand(" \u0007 List is empty."); }
         command.ReplyToCommand($"[\u0001/\u0004AutoTeamBalance\u0001]");
     }
-    [ConsoleCommand("css_scramble", "Scramble teams.")]
+    [ConsoleCommand("css_atbsc", "Scramble teams.")]
     [CommandHelper(minArgs: 0, usage: "", whoCanExecute: CommandUsage.CLIENT_AND_SERVER)]
     public void OnATBScrambleCommand(CCSPlayerController? player, CommandInfo command)
     {
         if (!AdminManager.PlayerHasPermissions(player, Config.BasicPermissions))
         {
             player!.PrintToChat(Localizer["NoPermissions"]);
+            return;
+        }
+        if (Config.EnableScramble == 0)
+        {
+            player!.PrintToChat("[\u0004AutoTeamBalance\u0001] \u0007Team scramble disabled in config.");
             return;
         }
         var result = ScrambleTeams();
@@ -105,34 +191,51 @@ public class AutoTeamBalance : BasePlugin, IPluginConfig<AutoTeamBalanceConfig>
     #region Events
     [GameEventHandler(HookMode.Post)]
     public HookResult OnRoundPrestart(EventRoundPrestart @event, GameEventInfo info) {
+        if (playersToMove.Count() > 0) {
+            foreach (var player in playersToMove) {
+                if (player.Team == CsTeam.Terrorist) player.SwitchTeam(CsTeam.CounterTerrorist);
+                else if (player.Team == CsTeam.CounterTerrorist) player.SwitchTeam(CsTeam.Terrorist);
+                player.PrintToChat(Localizer["ForcedChangedTeam"]);
+                logger.LogInformation($"Moving {player.PlayerName} with css_atbsw command to: {player.Team.ToString()}");
+            }
+            playersToMove.Clear();
+        }
         if (Config.GameMode != "default") return HookResult.Continue;
         var ttPlayers = PlayersTeams(CsTeam.Terrorist);
         var ctPlayers = PlayersTeams(CsTeam.CounterTerrorist);
         while (Math.Abs(ttPlayers.Count() - ctPlayers.Count()) >= Config.MaxDifference)
         {
-            Random random = new Random();
             MovedPlayerInfo moved = new MovedPlayerInfo();
             if (ttPlayers.Count() > ctPlayers.Count())
             {
-                var player = ttPlayers[random.Next(ttPlayers.Count())];
+                var player = getPlayerForSwitch(ttPlayers);
+                if (player == null) {
+                    logger.LogWarning($"Couldn't move player [NULL] (After[tt:{ttPlayers.Count()}|ct:{ctPlayers.Count()}])");
+                    return HookResult.Continue;
+                }
                 if (player.Team == CsTeam.Terrorist && player.Connected == PlayerConnectedState.PlayerConnected && player.IsValid)
                 {
                     moved.FirstSet(player.PlayerName, player.SteamID, teamNames[player.TeamNum - 2], new int[2] { ttPlayers.Count(), ctPlayers.Count() });
                     player.SwitchTeam(CsTeam.CounterTerrorist);
-                }
-                player.PrintToChat(Localizer["ForcedChangedTeam"]);
-                logger.LogInformation($"Moved {player.PlayerName} [{player.SteamID}] to the team: {player.Team.ToString()} (After[tt:{ttPlayers.Count()}|ct:{ctPlayers.Count()}])");
+                    player.PrintToChat(Localizer["ForcedChangedTeam"]);
+                    logger.LogInformation($"Moved {player.PlayerName} [{player.SteamID}] to the team: {player.Team.ToString()} (After[tt:{ttPlayers.Count()}|ct:{ctPlayers.Count()}])");
+                } else logger.LogWarning($"Couldn't move {player.PlayerName} [{player.SteamID}] (After[tt:{ttPlayers.Count()}|ct:{ctPlayers.Count()}])");
             }
             else if (ctPlayers.Count() > ttPlayers.Count())
             {
-                var player = ctPlayers[random.Next(ctPlayers.Count())];
+                var player = getPlayerForSwitch(ctPlayers);
+                if (player == null)
+                {
+                    logger.LogWarning($"Couldn't move player [NULL] (After[tt:{ttPlayers.Count()}|ct:{ctPlayers.Count()}])");
+                    return HookResult.Continue;
+                }
                 if (player.Team == CsTeam.CounterTerrorist && player.Connected == PlayerConnectedState.PlayerConnected && player.IsValid)
                 {
                     moved.FirstSet(player.PlayerName, player.SteamID, teamNames[player.TeamNum - 2], new int[2] { ttPlayers.Count(), ctPlayers.Count() });
                     player.SwitchTeam(CsTeam.Terrorist);
-                }
-                player.PrintToChat(Localizer["ForcedChangedTeam"]);
-                logger.LogInformation($"Moved {player.PlayerName} [{player.SteamID}] to the team: {player.Team.ToString()} (After[tt:{ttPlayers.Count()}|ct:{ctPlayers.Count()}])");
+                    player.PrintToChat(Localizer["ForcedChangedTeam"]);
+                    logger.LogInformation($"Moved {player.PlayerName} [{player.SteamID}] to the team: {player.Team.ToString()} (After[tt:{ttPlayers.Count()}|ct:{ctPlayers.Count()}])");
+                } else logger.LogWarning($"Couldn't move {player.PlayerName} [{player.SteamID}] (After[tt:{ttPlayers.Count()}|ct:{ctPlayers.Count()}])");
             } else { break; }
             ttPlayers = PlayersTeams(CsTeam.Terrorist);
             ctPlayers = PlayersTeams(CsTeam.CounterTerrorist);
@@ -251,6 +354,25 @@ public class AutoTeamBalance : BasePlugin, IPluginConfig<AutoTeamBalanceConfig>
         logger.LogInformation($"[/AutoTeamBalance]");
         return playersScrambled;
     }
+    private CCSPlayerController? getPlayerForSwitch(List<CCSPlayerController> list) {
+        Dictionary<string, int> clansCount = new Dictionary<string, int>();
+        foreach (var player in list) {
+            if (player.IsValid && player.Clan != null && player.Clan.Length > 0) {
+                if (clansCount.ContainsKey(player.Clan)) clansCount[player.Clan]++;
+                else clansCount[player.Clan] = 1;
+            }
+        }
+        if (clansCount.Count() > 0 && clansCount.Values.Any(value => value >= 2) && clansCount.Values.Where(value => value >= 2).Sum() != list.Count()){
+            foreach (var player in list) {
+                if (player.Clan == null || player.Clan.Length < 3) return player;
+                if (player.Clan != null && player.Clan.Length > 0 && clansCount[player.Clan] < 2) return player;
+            }
+        } else {    
+            Random random = new Random();
+            return list[random.Next(list.Count())];
+        }
+        return null;
+    }
     private int teamDiffCount(CCSPlayerController player)
     {
         var ttPlayers = PlayersTeams(CsTeam.Terrorist).Count();
@@ -328,6 +450,11 @@ public class AutoTeamBalance : BasePlugin, IPluginConfig<AutoTeamBalanceConfig>
         {
             Config.TeamCountMax = 5;
             logger.LogWarning($"TeamCountMax not set in the config/set wrong <0-32>, defaulting to 5");
+        }
+        if (Config.EnableScramble < 0 || Config.EnableScramble > 1 || !Config.EnableScramble.HasValue)
+        {
+            Config.EnableScramble = 0;
+            logger.LogWarning($"EnableScramble not set in the config/set wrong <0-1>, defaulting to 0");
         }
     }
     #endregion
